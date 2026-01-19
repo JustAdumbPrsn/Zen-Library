@@ -16,6 +16,7 @@
     flex-direction: row;
     overflow: visible; /* Allow library to spill out */
     box-sizing: border-box;
+    min-height: 0; /* Prevention of flex expansion */
 
     --tab-label-mask-size: 2em;
     --zen-folder-front-bgcolor: light-dark(color-mix(in srgb, var(--zen-primary-color), white 70%), color-mix(in srgb, var(--zen-primary-color), black 40%));
@@ -204,13 +205,14 @@
     height: 100%;
     display: flex;
     flex-direction: column;
-    padding: 16px 20px;
+    padding: 16px 0 0 0; /* 16px top, 0px horizontal/bottom */
     box-sizing: border-box;
     z-index: 1;
     animation: blockSlideIn 0.2s var(--zen-library-easing) 0s both;
     /* CRITICAL: Do not shrink, allow overflow out of host */
     flex-shrink: 0;
     flex-grow: 0;
+    min-height: 0; /* Prevention of flex expansion */
 }
 
 :host([right-side]) #zen-library-main-panel {
@@ -239,23 +241,212 @@
 .library-content {
     flex: 1;
     display: flex;
-    align-items: center;
-    justify-content: center;
+    flex-direction: column;
     width: 100%;
     height: 100%;
     position: relative;
     overflow: hidden;
+    min-height: 0; /* Prevention of flex expansion */
+}
+
+.library-content-fade-in {
+    animation: contentFadeIn 0.3s var(--zen-library-easing);
+}
+
+@keyframes contentFadeIn {
+    from { opacity: 0; transform: translateY(10px); }
+    to { opacity: 1; transform: translateY(0); }
+}
+
+.library-history-wrapper {
+    position: relative;
+    flex: 1;
+    overflow: hidden;
+    display: flex;
+    flex-direction: column;
+}
+
+.library-history-panes {
+    display: flex;
+    flex: 1;
+    width: 200%;
+    transition: transform 0.25s var(--zen-library-easing);
+    will-change: transform;
+}
+
+.history-pane {
+    width: 50%;
+    display: flex;
+    flex-direction: column;
+    height: 100%;
+    position: relative;
+}
+
+.library-history-container, .library-closed-windows-container {
+    flex: 1;
+    overflow-y: auto;
+    overflow-x: hidden;
+    scrollbar-width: none; /* Hidden by default */
+    padding: 0;
+}
+
+.scrollbar-visible {
+    scrollbar-width: auto !important; /* Normal width as requested */
+}
+
+.view-switcher-container {
+    display: flex;
+    align-items: center;
+    padding: 4px 16px;
+    margin-bottom: 4px;
+    gap: 8px;
+    cursor: pointer;
+    font-size: 11px;
+    font-weight: 600;
+    opacity: 0.6;
+    transition: opacity 0.2s;
+    user-select: none;
+}
+
+.view-switcher-container:hover {
+    opacity: 1;
+}
+
+.view-switcher-arrow {
+    width: 14px;
+    height: 14px;
+    background-color: currentColor;
+    mask-image: url("chrome://global/skin/icons/arrow-down.svg");
+    mask-size: contain;
+    mask-repeat: no-repeat;
+    mask-position: center;
+    transition: transform 0.3s var(--zen-library-easing);
+}
+
+.panes-shifted .view-switcher-arrow {
+    transform: rotate(-90deg);
+}
+
+.panes-shifted .library-history-panes {
+    transform: translateX(-50%);
+}
+
+.history-nav-item {
+    display: flex;
+    align-items: center;
+    gap: 8px; /* Match library-history-item */
+    padding: 0 8px; /* Match library-history-item */
+    height: 40px; /* Match library-history-item */
+    cursor: pointer;
+    transition: all 0.2s var(--zen-library-easing);
+    border-radius: var(--border-radius-medium);
+    margin: 0 8px; /* Match library-history-item */
+    color: var(--ws-text-color);
+    flex-shrink: 0;
+    opacity: 0.9;
+}
+
+.history-nav-item:hover {
+    background: var(--zen-library-hover-bg, rgba(255, 255, 255, 0.08));
+}
+
+.history-nav-item .nav-icon {
+    width: 16px; /* Match history favicon size */
+    height: 16px; /* Match history favicon size */
+    background-size: contain;
+    background-repeat: no-repeat;
+    background-position: center;
+    opacity: 0.8;
+}
+
+.history-nav-item .nav-label {
+    flex: 1;
+    font-size: 14px;
+    font-weight: 500;
+}
+
+.history-nav-item .nav-arrow {
+    width: 16px;
+    height: 16px;
+    background-color: currentColor;
+    mask-image: url("chrome://global/skin/icons/arrow-right.svg");
+    mask-size: contain;
+    mask-repeat: no-repeat;
+    mask-position: center;
+    opacity: 0.5;
+}
+
+.history-back-button {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 8px 16px;
+    cursor: pointer;
+    font-size: 13px;
+    font-weight: 600;
+    opacity: 0.6;
+    transition: opacity 0.2s;
+    margin-bottom: 0px; /* Reduced from 8px */
+}
+
+.history-back-button:hover {
+    opacity: 1;
+}
+
+.history-back-button .back-arrow {
+    width: 14px;
+    height: 14px;
+    background-color: currentColor;
+    mask-image: url("chrome://global/skin/icons/arrow-left.svg");
+    mask-size: contain;
+    mask-repeat: no-repeat;
+    mask-position: center;
+}
+
+.history-separator {
+    height: 1px;
+    background: currentColor;
+    opacity: 0.1;
+    margin: 4px 16px; /* Tighter margins */
 }
 
 .search-container {
-    background: var(--zen-hover-background, rgba(255, 255, 255, 0.05));
-    border-radius: 12px;
+    background: var(--zen-toolbar-element-bg) !important;
+    border-radius: var(--border-radius-medium);
     display: flex;
     align-items: center;
-    padding: 10px 12px;
-    gap: 12px;
-    width: 100%;
+    padding: 0; 
+    margin: 0 8px 8px 8px; /* Added 8px bottom margin for spacing */
+    gap: 0;
+    width: auto;
+    outline: none !important;
+    overflow: hidden;
+    position: relative;
+    height: 40px; 
 }
+
+.search-container input {
+    background: none;
+    border: none;
+    flex: 1;
+    font-size: 13.5px;
+    outline: none;
+    padding-left: 8px;
+    padding-right: 4px;
+    height: 100%;
+    color: inherit;
+}
+
+.search-icon-wrapper {
+    width: 40px; /* Match height */
+    height: 40px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex-shrink: 0;
+    opacity: 0.5;
+}
+
 
 .search-icon {
     width: 18px;
@@ -280,7 +471,10 @@
     display: flex;
     flex-direction: column;
     align-items: center;
+    justify-content: center;
     gap: 24px;
+    height: 100%;
+    width: 100%;
 }
 
 
@@ -439,7 +633,6 @@
     overflow-y: auto;
     scrollbar-width: none;
     min-height: 0;
-
 }
 
 .library-workspace-item {
@@ -462,7 +655,7 @@
 }
 
 .library-workspace-item:hover {
-    background: var(--ws-tab-hover-color, rgba(255, 255, 255, 0.08));
+    background: var(--zen-library-hover-bg, var(--ws-tab-hover-color, rgba(255, 255, 255, 0.08)));
 }
 
 .library-workspace-item.selected {
@@ -867,10 +1060,134 @@
      mask-image: linear-gradient(to left, transparent 28px, black 40px);
 }
 
-.folder-icon svg .icon { opacity: 1; }
-.folder-icon svg .dots { opacity: 0; }
-.folder-icon svg[active='true'] .icon { opacity: 0; }
-.folder-icon svg[active='true'] .dots { opacity: 1; }
+.library-history-container {
+    position: absolute;
+    inset: 0;
+    display: flex;
+    flex-direction: column;
+    padding: 0;
+    overflow-y: auto;
+    gap: 4px; /* Slightly tighter gap */
+    min-height: 0;
+    scrollbar-width: thin;
+    scrollbar-color: color-mix(in srgb, currentColor, transparent 50%) transparent;
+}
+
+.library-history-container::-webkit-scrollbar {
+    width: 4px;
+}
+
+.library-history-container::-webkit-scrollbar-thumb {
+    background: color-mix(in srgb, currentColor, transparent 50%);
+    border-radius: 10px;
+}
+
+.library-history-container::-webkit-scrollbar-track {
+    background: transparent;
+}
+
+.history-bottom-spacer {
+    height: 16px;
+    flex-shrink: 0;
+}
+
+.history-section-header {
+    font-size: 11px;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    opacity: 0.5;
+    margin: 8px 8px 8px 8px; /* 8px horizontal padding */
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+
+.history-section-header::after {
+    content: "";
+    flex: 1;
+    height: 1px;
+    background: currentColor;
+    opacity: 0.2;
+}
+
+.library-history-item {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 0 8px;
+    height: 40px;
+    margin: 0 8px;
+    border-radius: var(--border-radius-medium);
+    cursor: pointer;
+    transition: all 0.2s; /* Sync with workspace item */
+    position: relative;
+    user-select: none;
+    flex-shrink: 0;
+    opacity: 0.9; /* Sync with workspace item */
+    box-sizing: border-box;
+}
+
+
+.library-history-item:hover {
+    background: var(--zen-library-hover-bg, var(--ws-tab-hover-color, rgba(255, 255, 255, 0.08)));
+}
+
+.library-history-item:active {
+    transform: scale(0.98);
+}
+
+.library-history-item .item-icon-container {
+    width: 20px;
+    height: 20px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex-shrink: 0;
+    opacity: 0.8;
+}
+
+.library-history-item .item-icon {
+    width: 16px;
+    height: 16px;
+    background-size: contain;
+    background-repeat: no-repeat;
+    background-position: center;
+}
+
+.library-history-item .item-info {
+    flex: 1;
+    min-width: 0;
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+}
+
+.library-history-item .item-title {
+    font-size: 13px; /* Match Spaces UI */
+    font-weight: 500;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    opacity: 0.95;
+}
+
+.library-history-item .item-url {
+    font-size: 10px; /* Slightly smaller to fit 40px height */
+    opacity: 0.5;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    margin-top: -1px; /* Tighter spacing */
+}
+
+.library-history-item .item-time {
+    font-size: 9px;
+    opacity: 0.35;
+    font-variant-numeric: tabular-nums;
+    margin-left: 0; /* Removed manual margin gap */
+    flex-shrink: 0;
+}
 `;
 
     const GLOBAL_CSS = `
@@ -932,6 +1249,20 @@
             this._sidebarItemEls = {};
             this._lastWorkspaceIds = null;
             this._folderExpansion = new Map(); // Local state: Map<id, isExpanded>
+
+            // History State
+            this._historyItems = [];
+            this._renderedItems = [];
+            this._historySearchTerm = "";
+            this._historyBatchSize = 30; // Reduced for smoother first render
+            this._isHistoryLoading = false;
+            this._renderedCount = 0;
+
+            try {
+                this._sessionStart = Services.startup.getStartupInfo().process.getTime();
+            } catch (e) {
+                this._sessionStart = Date.now();
+            }
         }
 
         get activeTab() { return this._activeTab; }
@@ -949,6 +1280,19 @@
                     const style = document.createElement("style");
                     style.textContent = CSS_CONTENT;
                     this.shadowRoot.appendChild(style);
+
+                    // Pull real Zen colors from the global scope into our shadow DOM
+                    const updateColors = () => {
+                        const rootStyle = window.getComputedStyle(document.documentElement);
+                        const hoverBg = rootStyle.getPropertyValue("--zen-hover-background") ||
+                            rootStyle.getPropertyValue("--tab-hover-background-color");
+                        if (hoverBg) {
+                            this.style.setProperty("--zen-library-hover-bg", hoverBg);
+                        }
+                    };
+                    updateColors();
+                    // Also update when theme might change
+                    window.matchMedia("(prefers-color-scheme: dark)").addListener(updateColors);
 
                     const sidebar = document.createElement("div");
                     sidebar.id = "zen-library-sidebar-new";
@@ -978,7 +1322,7 @@
                             iconSvg = `
 <svg class="icon history-icon" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
   <circle cx="12" cy="12" r="9" stroke="var(--zen-folder-stroke)" stroke-width="2" fill="var(--zen-folder-front-bgcolor)" fill-opacity="0"/>
-  <path d="M12 7V12H16" stroke="var(--zen-folder-stroke)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+  <path d="M12 7V12 L 15.5 14" stroke="var(--zen-folder-stroke)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
 </svg>`;
                         } else if (id === "media") {
                             iconSvg = `
@@ -994,6 +1338,7 @@
   </g>
   <g class="front">
     <rect class="front-rect" x="6" y="7" width="14" height="12" rx="2" stroke="var(--zen-folder-stroke)" stroke-width="2" fill="var(--zen-folder-front-bgcolor)" fill-opacity="0"/>
+    <circle class="sun" cx="10" cy="12.5" r="1.5" fill="var(--zen-folder-stroke)" fill-opacity="0.7" />
     <path class="mountain" d="M6 19Q9 14 10.5 15.5T13 15Q14.5 13 16 14T20 19H6Z" fill="var(--zen-folder-stroke)" fill-opacity="0"/>
   </g>
 </svg>`;
@@ -1067,6 +1412,377 @@
             }
         }
 
+        renderHistory() {
+            // Main wrapper for switcher and panes
+            const wrapper = this.el("div", { className: "library-history-wrapper" });
+
+            const panes = this.el("div", { className: "library-history-panes" });
+            wrapper.appendChild(panes);
+
+            // History Pane
+            const historyPane = this.el("div", { className: "history-pane" });
+            const historyContainer = this.el("div", {
+                className: "library-history-container",
+                onscroll: (e) => {
+                    const el = e.target;
+                    if (el.scrollHeight - el.scrollTop - el.clientHeight < 200) {
+                        this.loadMoreHistory();
+                    }
+                }
+            });
+            this._historyContainer = historyContainer;
+            historyPane.appendChild(historyContainer);
+            panes.appendChild(historyPane);
+
+            // Closed Windows Pane
+            const closedPane = this.el("div", { className: "history-pane" });
+            const closedContainer = this.el("div", { className: "library-closed-windows-container" });
+            this._closedWindowsContainer = closedContainer;
+
+            const backBtn = this.el("div", {
+                className: "history-back-button",
+                onclick: () => wrapper.classList.remove("panes-shifted")
+            }, [
+                this.el("div", { className: "back-arrow" }),
+                this.el("span", { textContent: "Back to History" })
+            ]);
+            closedPane.appendChild(backBtn);
+            closedPane.appendChild(closedContainer);
+            panes.appendChild(closedPane);
+
+            const startLoading = () => {
+                const onLoaded = () => {
+                    historyContainer.classList.add("library-content-fade-in");
+                    // Delay scrollbar visibility until history loads
+                    setTimeout(() => historyContainer.classList.add("scrollbar-visible"), 100);
+                };
+
+                // Add navigation items at the top of historyContainer
+                const navItems = document.createDocumentFragment();
+
+                const closedTabsItem = this.el("div", {
+                    className: "history-nav-item history-nav-static",
+                    onclick: () => {
+                        wrapper.classList.add("panes-shifted");
+                        this.renderClosedTabs();
+                    }
+                }, [
+                    this.el("div", { className: "nav-icon", style: "background-image: url('chrome://browser/skin/history.svg')" }),
+                    this.el("span", { className: "nav-label", textContent: "Recently closed tabs" }),
+                    this.el("div", { className: "nav-arrow" })
+                ]);
+
+                const closedWindowsItem = this.el("div", {
+                    className: "history-nav-item history-nav-static",
+                    onclick: () => {
+                        wrapper.classList.add("panes-shifted");
+                        this.renderClosedWindows();
+                    }
+                }, [
+                    this.el("div", { className: "nav-icon", style: "background-image: url('chrome://browser/skin/window.svg')" }),
+                    this.el("span", { className: "nav-label", textContent: "Recently closed windows" }),
+                    this.el("div", { className: "nav-arrow" })
+                ]);
+
+                navItems.appendChild(closedTabsItem);
+                navItems.appendChild(closedWindowsItem);
+
+                const clearItem = this.el("div", {
+                    className: "history-nav-item history-nav-static",
+                    onclick: () => {
+                        const win = Services.wm.getMostRecentWindow("browser:pure") || window;
+
+                        // 1. Try to trigger the command if found (most native way)
+                        const cmd = win.document.getElementById("Tools:Sanitize") ||
+                            win.document.getElementById("cmd_sanitizeHistory");
+                        if (cmd) {
+                            cmd.doCommand();
+                            return;
+                        }
+
+                        // 2. Fallback to global observer notification
+                        try {
+                            Services.obs.notifyObservers(null, "sanitize", "");
+                        } catch (e) { }
+
+                        // 3. Last resort fallback: open the dialog directly
+                        try {
+                            win.openDialog(
+                                "chrome://browser/content/sanitize.xhtml",
+                                "Sanitize",
+                                "chrome,modal,resizable=yes,centerscreen"
+                            );
+                        } catch (e) {
+                            console.error("ZenLibrary: Failed to open clear history dialog", e);
+                        }
+                    }
+                }, [
+                    this.el("div", { className: "nav-icon", style: "background-image: url('chrome://global/skin/icons/delete.svg')" }),
+                    this.el("span", { className: "nav-label", textContent: "Clear recent history..." })
+                ]);
+                navItems.appendChild(clearItem);
+
+                historyContainer.appendChild(navItems);
+
+                if (this._historyItems.length === 0 && !this._isHistoryLoading) {
+                    this.fetchHistory().then(() => {
+                        this.renderHistoryBatch(true); // Reset counters for new container
+                        onLoaded();
+                    });
+                } else {
+                    this.renderHistoryBatch(true); // Reset counters for new container
+                    onLoaded();
+                }
+            };
+
+            // Show centered loading placeholder
+            const isTransitioning = window.gZenLibrary && window.gZenLibrary._isTransitioning;
+            const loading = this.el("div", { className: "empty-state library-content-fade-in" }, [
+                this.el("div", { className: "empty-icon history-icon" }),
+                this.el("h3", { textContent: "Preparing history..." }),
+                this.el("p", { textContent: "Hang tight, we're gathering your recent browsing history." })
+            ]);
+            historyContainer.appendChild(loading);
+
+            const delay = isTransitioning ? 400 : 250;
+            setTimeout(() => {
+                const l = historyContainer.querySelector(".empty-state");
+                if (l) l.remove();
+                startLoading();
+            }, delay);
+
+            return wrapper;
+        }
+
+        renderClosedWindows() {
+            if (!this._closedWindowsContainer) return;
+            this._closedWindowsContainer.innerHTML = "";
+            this._closedWindowsContainer.classList.remove("scrollbar-visible");
+
+            const closedData = SessionStore.getClosedWindowData();
+            if (closedData.length === 0) {
+                this._closedWindowsContainer.appendChild(this.el("div", { className: "empty-state" }, [
+                    this.el("div", { className: "empty-icon history-icon" }),
+                    this.el("h3", { textContent: "No recently closed windows" }),
+                    this.el("p", { textContent: "Closed windows will appear here." })
+                ]));
+                return;
+            }
+
+            const fragment = document.createDocumentFragment();
+            fragment.appendChild(this.el("div", { className: "history-section-header", textContent: "Closed Windows" }));
+
+            closedData.forEach((win, index) => {
+                const tabsCount = win.tabs.length;
+                const title = win.title || `Window with ${tabsCount} tabs`;
+
+                const row = this.el("div", {
+                    className: "library-history-item",
+                    onclick: () => {
+                        SessionStore.undoCloseWindow(index);
+                        window.gZenLibrary.close();
+                    }
+                }, [
+                    this.el("div", { className: "item-icon-container" }, [
+                        this.el("div", { className: "item-icon", style: "background-image: url('chrome://browser/skin/window.svg'); opacity: 0.6;" })
+                    ]),
+                    this.el("div", { className: "item-info" }, [
+                        this.el("div", { className: "item-title", textContent: title }),
+                        this.el("div", { className: "item-url", textContent: `${tabsCount} tabs` })
+                    ])
+                ]);
+                fragment.appendChild(row);
+            });
+
+            this._closedWindowsContainer.appendChild(fragment);
+            this._closedWindowsContainer.appendChild(this.el("div", { className: "history-bottom-spacer" }));
+
+            // Fade in and show scrollbar after render
+            this._closedWindowsContainer.classList.add("library-content-fade-in");
+            setTimeout(() => this._closedWindowsContainer.classList.add("scrollbar-visible"), 100);
+        }
+
+        renderClosedTabs() {
+            if (!this._closedWindowsContainer) return;
+            const container = this._closedWindowsContainer;
+            container.innerHTML = "";
+            container.classList.remove("scrollbar-visible");
+
+            const closedData = SessionStore.getClosedTabData(window);
+            if (closedData.length === 0) {
+                container.appendChild(this.el("div", { className: "empty-state" }, [
+                    this.el("div", { className: "empty-icon history-icon" }),
+                    this.el("h3", { textContent: "No recently closed tabs" }),
+                    this.el("p", { textContent: "Tabs you close will appear here." })
+                ]));
+                return;
+            }
+
+            const fragment = document.createDocumentFragment();
+            fragment.appendChild(this.el("div", { className: "history-section-header", textContent: "Closed Tabs" }));
+
+            closedData.forEach((tabData, index) => {
+                const title = tabData.title || tabData.state.entries[tabData.state.index - 1].title;
+                const url = tabData.state.entries[tabData.state.index - 1].url;
+
+                const row = this.el("div", {
+                    className: "library-history-item",
+                    onclick: () => {
+                        SessionStore.undoCloseTab(window, index);
+                        window.gZenLibrary.close();
+                    }
+                }, [
+                    this.el("div", { className: "item-icon-container" }, [
+                        this.el("div", { className: "item-icon", style: `background-image: url('page-icon:${url}');` })
+                    ]),
+                    this.el("div", { className: "item-info" }, [
+                        this.el("div", { className: "item-title", textContent: title }),
+                        this.el("div", { className: "item-url", textContent: url })
+                    ])
+                ]);
+                fragment.appendChild(row);
+            });
+
+            container.appendChild(fragment);
+            container.appendChild(this.el("div", { className: "history-bottom-spacer" }));
+
+            container.classList.add("library-content-fade-in");
+            setTimeout(() => container.classList.add("scrollbar-visible"), 100);
+        }
+
+        async fetchHistory() {
+            this._isHistoryLoading = true;
+            try {
+                const { PlacesUtils } = ChromeUtils.importESModule("resource://gre/modules/PlacesUtils.sys.mjs");
+                const query = PlacesUtils.history.getNewQuery();
+                const options = PlacesUtils.history.getNewQueryOptions();
+                options.sortingMode = options.SORT_BY_DATE_DESCENDING;
+                options.maxResults = 500;
+
+                const result = PlacesUtils.history.executeQuery(query, options);
+                const root = result.root;
+                root.containerOpen = true;
+
+                this._historyItems = [];
+                for (let i = 0; i < root.childCount; i++) {
+                    const node = root.getChild(i);
+                    this._historyItems.push({
+                        uri: node.uri,
+                        title: node.title || node.uri,
+                        time: node.time,
+                        timeStr: new Date(node.time / 1000).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }),
+                        dateStr: new Date(node.time / 1000).toLocaleDateString("en-GB", { day: '2-digit', month: '2-digit', year: 'numeric' }) // DD/MM/YYYY
+                    });
+                }
+                root.containerOpen = false;
+            } catch (e) {
+                console.error("ZenLibrary History Fetch Error:", e);
+            } finally {
+                this._isHistoryLoading = false;
+            }
+        }
+
+        renderHistoryBatch(reset = true) {
+            if (!this._historyContainer) return;
+
+            if (reset) {
+                // Keep ONLY the static navigation items
+                const navItems = this._historyContainer.querySelectorAll(".history-nav-static");
+                this._historyContainer.innerHTML = "";
+                navItems.forEach(i => this._historyContainer.appendChild(i));
+                this._renderedCount = 0;
+                this._lastGroupLabel = null;
+            }
+
+            const filtered = this._historySearchTerm
+                ? this._historyItems.filter(i =>
+                    i.title.toLowerCase().includes(this._historySearchTerm.toLowerCase()) ||
+                    i.uri.toLowerCase().includes(this._historySearchTerm.toLowerCase())
+                )
+                : this._historyItems;
+
+            if (filtered.length === 0 && !this._isHistoryLoading) {
+                this._historyContainer.innerHTML = `<div class="history-section-header">No results found</div>`;
+                return;
+            }
+
+            const nextBatch = filtered.slice(this._renderedCount, this._renderedCount + this._historyBatchSize);
+            if (nextBatch.length === 0) return;
+
+            const fragment = document.createDocumentFragment();
+            const today = new Date();
+            today.setHours(0, 0, 0, 0);
+            const yesterday = new Date(today);
+            yesterday.setDate(yesterday.getDate() - 1);
+
+            nextBatch.forEach(item => {
+                const timeMs = item.time / 1000;
+                let groupLabel = "";
+
+                if (this._historySearchTerm) {
+                    groupLabel = "Search Results";
+                } else if (timeMs >= this._sessionStart) {
+                    groupLabel = "Recently Visited (Session)";
+                } else {
+                    const d = new Date(timeMs);
+                    d.setHours(0, 0, 0, 0);
+                    if (d.getTime() === today.getTime()) groupLabel = "Today";
+                    else if (d.getTime() === yesterday.getTime()) groupLabel = "Yesterday";
+                    else groupLabel = new Date(timeMs).toLocaleDateString(undefined, { weekday: 'long', month: 'long', day: 'numeric', year: 'numeric' });
+                }
+
+                if (groupLabel !== this._lastGroupLabel) {
+                    fragment.appendChild(this.el("div", {
+                        className: "history-section-header",
+                        textContent: groupLabel
+                    }));
+                    this._lastGroupLabel = groupLabel;
+                }
+
+                const displayTime = (this._historySearchTerm || (this._lastGroupLabel !== "Recently Visited (Session)" && this._lastGroupLabel !== "Today" && this._lastGroupLabel !== "Yesterday"))
+                    ? item.dateStr
+                    : item.timeStr;
+
+                const row = this.el("div", {
+                    className: "library-history-item",
+                    onclick: () => {
+                        window.gBrowser.selectedTab = window.gBrowser.addTab(item.uri, {
+                            triggeringPrincipal: Services.scriptSecurityManager.getSystemPrincipal(),
+                        });
+                    }
+                }, [
+                    this.el("div", { className: "item-icon-container" }, [
+                        this.el("div", {
+                            className: "item-icon",
+                            style: `background-image: url("page-icon:${item.uri}");`
+                        })
+                    ]),
+                    this.el("div", { className: "item-info" }, [
+                        this.el("div", { className: "item-title", textContent: item.title }),
+                        this.el("div", { className: "item-url", textContent: item.uri })
+                    ]),
+                    this.el("div", { className: "item-time", textContent: displayTime })
+                ]);
+                fragment.appendChild(row);
+            });
+
+            this._renderedCount += nextBatch.length;
+
+            // Remove old spacer
+            const oldSpacer = this._historyContainer.querySelector(".history-bottom-spacer");
+            if (oldSpacer) oldSpacer.remove();
+
+            this._historyContainer.appendChild(fragment);
+
+            // Add new spacer at the end
+            this._historyContainer.appendChild(this.el("div", { className: "history-bottom-spacer" }));
+        }
+
+        loadMoreHistory() {
+            this.renderHistoryBatch(false);
+        }
+
+
         update() {
             try {
                 const { workspaces, width } = ZenLibrarySpaces.getData();
@@ -1093,9 +1809,22 @@
                 if (this.activeTab !== "spaces") {
                     if (tabChanged || !header.firstElementChild) {
                         header.innerHTML = "";
+                        const searchInput = this.el("input", {
+                            type: "text",
+                            placeholder: `Search ${this.activeTab.charAt(0).toUpperCase() + this.activeTab.slice(1)}...`,
+                            value: this.activeTab === "history" ? this._historySearchTerm : "",
+                            oninput: (e) => {
+                                if (this.activeTab === "history") {
+                                    this._historySearchTerm = e.target.value;
+                                    this.renderHistoryBatch(true);
+                                }
+                            }
+                        });
                         const searchContainer = this.el("div", { className: "search-container" }, [
-                            this.el("div", { className: "search-icon" }),
-                            this.el("input", { type: "text", placeholder: `Search ${this.activeTab.charAt(0).toUpperCase() + this.activeTab.slice(1)}...` })
+                            this.el("div", { className: "search-icon-wrapper" }, [
+                                this.el("div", { className: "search-icon" })
+                            ]),
+                            searchInput
                         ]);
                         header.appendChild(searchContainer);
                     }
@@ -1156,6 +1885,7 @@
 
                     content.innerHTML = "";
                     content.appendChild(grid);
+                    grid.classList.add("library-content-fade-in");
 
                     // Restore scroll position
                     if (oldScroll > 0) {
@@ -1163,8 +1893,14 @@
                     }
 
                     requestAnimationFrame(() => grid.classList.add("animation-complete"));
+                } else if (this.activeTab === "history") {
+                    if (!content.querySelector(".library-history-container") || tabChanged) {
+                        const historyEl = this.renderHistory();
+                        content.innerHTML = "";
+                        content.appendChild(historyEl);
+                    }
                 } else {
-                    content.innerHTML = `<div class="empty-state">
+                    content.innerHTML = `<div class="empty-state library-content-fade-in">
                         <div class="empty-icon ${this.activeTab}-icon"></div>
                         <h3>Nothing here yet!</h3>
                         <p>Content for ${this.activeTab} will be displayed here once available.</p>
@@ -1347,7 +2083,6 @@
                 ]);
 
                 const listContainer = this.el("div", { className: "library-workspace-card-list" });
-
                 const wsEl = window.gZenWorkspaces.workspaceElement(ws.uuid);
                 if (wsEl) {
                     const pinnedContainer = wsEl.pinnedTabsContainer;
