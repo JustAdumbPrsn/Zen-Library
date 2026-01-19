@@ -24,6 +24,175 @@
     --zen-folder-stroke: light-dark(color-mix(in srgb, var(--zen-primary-color) 50%, black), color-mix(in srgb, var(--zen-primary-color) 15%, #ebebeb));
 }
 
+/* LIST VIEW STYLES (Refactored from History) */
+.library-list-wrapper {
+    position: relative;
+    flex: 1;
+    overflow: hidden;
+    display: flex;
+    flex-direction: column;
+}
+
+.library-list-panes {
+    display: flex;
+    flex: 1;
+    width: 200%;
+    transition: transform 0.25s var(--zen-library-easing);
+    will-change: transform;
+}
+
+.history-pane {
+    width: 50%;
+    display: flex;
+    flex-direction: column;
+    height: 100%;
+    position: relative;
+}
+
+.library-list-container, .library-closed-windows-container {
+    flex: 1;
+    overflow-y: auto;
+    overflow-x: hidden;
+    scrollbar-width: none; /* Hidden by default */
+    padding: 0;
+}
+
+.scrollbar-visible {
+    scrollbar-width: auto !important; /* Normal width as requested */
+}
+
+/* Custom WebKit Scrollbar (applied to list containers and spaces grid) */
+.library-list-container::-webkit-scrollbar,
+.library-workspace-grid::-webkit-scrollbar,
+.library-closed-windows-container::-webkit-scrollbar {
+    width: 4px;
+}
+
+.library-list-container::-webkit-scrollbar-thumb,
+.library-workspace-grid::-webkit-scrollbar-thumb,
+.library-closed-windows-container::-webkit-scrollbar-thumb {
+    background: color-mix(in srgb, currentColor, transparent 50%);
+    border-radius: 10px;
+}
+
+.library-list-container::-webkit-scrollbar-track,
+.library-workspace-grid::-webkit-scrollbar-track,
+.library-closed-windows-container::-webkit-scrollbar-track {
+    background: transparent;
+}
+
+
+.library-list-item {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 0 8px;
+    height: 40px;
+    margin: 0 8px;
+    border-radius: var(--border-radius-medium);
+    cursor: pointer;
+    transition: all 0.2s; /* Sync with workspace item */
+    position: relative;
+    user-select: none;
+    flex-shrink: 0;
+    opacity: 0.9; /* Sync with workspace item */
+    box-sizing: border-box;
+}
+
+.library-list-item:hover {
+    background: var(--zen-library-hover-bg, var(--ws-tab-hover-color, rgba(255, 255, 255, 0.08)));
+}
+
+.library-list-item:active {
+    transform: scale(0.98);
+}
+
+.library-list-item .item-icon-container {
+    width: 20px;
+    height: 20px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex-shrink: 0;
+    opacity: 0.8;
+}
+
+.library-list-item .item-icon {
+    width: 16px;
+    height: 16px;
+    background-size: contain;
+    background-repeat: no-repeat;
+    background-position: center;
+}
+
+.library-list-item .item-info {
+    flex: 1;
+    min-width: 0;
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+}
+
+.library-list-item .item-title {
+    font-size: 13px; /* Match Spaces UI */
+    font-weight: 500;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    opacity: 0.95;
+}
+
+.library-list-item .item-url {
+    font-size: 10px; /* Slightly smaller to fit 40px height */
+    opacity: 0.5;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    margin-top: -1px; /* Tighter spacing */
+}
+
+.library-list-item .item-time {
+    font-size: 9px;
+    opacity: 0.35;
+    font-variant-numeric: tabular-nums;
+    margin-left: 0; /* Removed manual margin gap */
+    flex-shrink: 0;
+    display: block;
+}
+
+/* Hover Interaction: Timestamp <-> Folder Icon */
+.library-list-item:hover .item-time {
+    display: none; 
+}
+
+.library-list-item .item-folder-icon {
+    display: none;
+    width: 24px;
+    height: 24px;
+    align-items: center;
+    justify-content: center;
+    border-radius: 4px;
+    cursor: pointer;
+    flex-shrink: 0;
+    opacity: 0.6;
+    margin-right: -4px; /* Align slightly right */
+}
+
+.library-list-item:hover .item-folder-icon {
+    display: flex;
+}
+
+.library-list-item .item-folder-icon:hover {
+    background: rgba(255, 255, 255, 0.1);
+    opacity: 1;
+}
+
+.library-list-item .item-folder-icon svg {
+    width: 14px;
+    height: 14px;
+    fill: currentColor;
+}
+
 :host(.closing) {
     /* No special width needed, offset animation handles exit */
 }
@@ -258,7 +427,12 @@
     to { opacity: 1; transform: translateY(0); }
 }
 
-.library-history-wrapper {
+@keyframes emptyStateFadeIn {
+    from { opacity: 0; transform: translateY(10px); }
+    to { opacity: 0.7; transform: translateY(0); }
+}
+
+.library-list-wrapper {
     position: relative;
     flex: 1;
     overflow: hidden;
@@ -266,7 +440,7 @@
     flex-direction: column;
 }
 
-.library-history-panes {
+.library-list-panes {
     display: flex;
     flex: 1;
     width: 200%;
@@ -282,16 +456,16 @@
     position: relative;
 }
 
-.library-history-container, .library-closed-windows-container {
+.library-list-container, .library-closed-windows-container {
     flex: 1;
-    overflow-y: auto;
+    overflow-y: hidden; /* Hide by default to prevent 1px lines */
     overflow-x: hidden;
-    scrollbar-width: none; /* Hidden by default */
     padding: 0;
 }
 
 .scrollbar-visible {
-    scrollbar-width: auto !important; /* Normal width as requested */
+    scrollbar-width: auto !important; /* Restore native width */
+    overflow-y: auto !important; /* Only scroll when visible */
 }
 
 .view-switcher-container {
@@ -327,20 +501,20 @@
     transform: rotate(-90deg);
 }
 
-.panes-shifted .library-history-panes {
+.panes-shifted .library-list-panes {
     transform: translateX(-50%);
 }
 
 .history-nav-item {
     display: flex;
     align-items: center;
-    gap: 8px; /* Match library-history-item */
-    padding: 0 8px; /* Match library-history-item */
-    height: 40px; /* Match library-history-item */
+    gap: 8px; /* Match library-list-item */
+    padding: 0 8px; /* Match library-list-item */
+    height: 40px; /* Match library-list-item */
     cursor: pointer;
     transition: all 0.2s var(--zen-library-easing);
     border-radius: var(--border-radius-medium);
-    margin: 0 8px; /* Match library-history-item */
+    margin: 0 8px; /* Match library-list-item */
     color: var(--ws-text-color);
     flex-shrink: 0;
     opacity: 0.9;
@@ -507,9 +681,30 @@
     height: 100%;
     overflow-x: hidden;
     overflow-y: hidden;
+    /* Inheritance of library scrollbar styles */
+    scrollbar-width: thin;
+    scrollbar-color: color-mix(in srgb, currentColor, transparent 50%) transparent;
 }
 
-.library-workspace-grid.animation-complete { overflow-x: auto; }
+.library-workspace-grid::-webkit-scrollbar {
+    width: 4px;
+    height: 4px; /* Ensure horizontal scrollbar is styled */
+}
+
+.library-workspace-grid::-webkit-scrollbar-thumb {
+    background: color-mix(in srgb, currentColor, transparent 50%);
+    border-radius: 10px;
+}
+
+.library-workspace-grid::-webkit-scrollbar-track {
+    background: transparent;
+}
+
+.library-workspace-grid.scrollbar-visible {
+    overflow-x: auto;
+}
+
+
 
 /* Create Workspace Button */
 .library-create-workspace-button {
@@ -1060,29 +1255,28 @@
      mask-image: linear-gradient(to left, transparent 28px, black 40px);
 }
 
-.library-history-container {
+.library-list-container {
     position: absolute;
     inset: 0;
-    display: flex;
     flex-direction: column;
     padding: 0;
-    overflow-y: auto;
+    overflow-y: hidden; /* defer to .scrollbar-visible */
     gap: 4px; /* Slightly tighter gap */
     min-height: 0;
     scrollbar-width: thin;
     scrollbar-color: color-mix(in srgb, currentColor, transparent 50%) transparent;
 }
 
-.library-history-container::-webkit-scrollbar {
+.library-list-container::-webkit-scrollbar {
     width: 4px;
 }
 
-.library-history-container::-webkit-scrollbar-thumb {
+.library-list-container::-webkit-scrollbar-thumb {
     background: color-mix(in srgb, currentColor, transparent 50%);
     border-radius: 10px;
 }
 
-.library-history-container::-webkit-scrollbar-track {
+.library-list-container::-webkit-scrollbar-track {
     background: transparent;
 }
 
@@ -1111,7 +1305,7 @@
     opacity: 0.2;
 }
 
-.library-history-item {
+.library-list-item {
     display: flex;
     align-items: center;
     gap: 8px;
@@ -1129,15 +1323,15 @@
 }
 
 
-.library-history-item:hover {
+.library-list-item:hover {
     background: var(--zen-library-hover-bg, var(--ws-tab-hover-color, rgba(255, 255, 255, 0.08)));
 }
 
-.library-history-item:active {
+.library-list-item:active {
     transform: scale(0.98);
 }
 
-.library-history-item .item-icon-container {
+.library-list-item .item-icon-container {
     width: 20px;
     height: 20px;
     display: flex;
@@ -1147,7 +1341,7 @@
     opacity: 0.8;
 }
 
-.library-history-item .item-icon {
+.library-list-item .item-icon {
     width: 16px;
     height: 16px;
     background-size: contain;
@@ -1155,7 +1349,7 @@
     background-position: center;
 }
 
-.library-history-item .item-info {
+.library-list-item .item-info {
     flex: 1;
     min-width: 0;
     display: flex;
@@ -1163,7 +1357,7 @@
     gap: 2px;
 }
 
-.library-history-item .item-title {
+.library-list-item .item-title {
     font-size: 13px; /* Match Spaces UI */
     font-weight: 500;
     white-space: nowrap;
@@ -1172,7 +1366,7 @@
     opacity: 0.95;
 }
 
-.library-history-item .item-url {
+.library-list-item .item-url {
     font-size: 10px; /* Slightly smaller to fit 40px height */
     opacity: 0.5;
     white-space: nowrap;
@@ -1181,12 +1375,108 @@
     margin-top: -1px; /* Tighter spacing */
 }
 
-.library-history-item .item-time {
+.library-list-item .item-time {
     font-size: 9px;
     opacity: 0.35;
     font-variant-numeric: tabular-nums;
     margin-left: 0; /* Removed manual margin gap */
     flex-shrink: 0;
+}
+
+
+/* Hover Interaction: Timestamp <-> Folder Icon */
+.library-list-item:hover .item-time {
+    display: none; 
+}
+
+.library-list-item .item-folder-icon {
+    display: none;
+    width: 24px;
+    height: 24px;
+    align-items: center;
+    justify-content: center;
+    border-radius: 4px;
+    cursor: pointer;
+    flex-shrink: 0;
+    opacity: 0.6; /* Reduced opacity */
+    margin-right: 0; /* Reset manual margin to rely on container padding (8px) */
+    color: var(--ws-text-color, inherit); /* Ensure currentColor is valid */
+}
+
+.library-list-item:hover .item-folder-icon {
+    display: flex;
+}
+
+.library-list-item .item-folder-icon:hover {
+    background: rgba(255, 255, 255, 0.1);
+    opacity: 1;
+}
+
+/* Replicate .library-tab-close-button .icon-mask pattern */
+.library-list-item .item-folder-mask {
+    width: 16px; /* Smaller size */
+    height: 16px;
+    background-color: currentColor;
+    mask-size: contain;
+    mask-repeat: no-repeat;
+    mask-position: center;
+    /* Zen Native "Folder" path (Modified to black for masking) */
+    mask-image: url("data:image/svg+xml,%3Csvg width='24' height='24' viewBox='0 0 24 24' fill='none' xmlns='http://www.w3.org/2000/svg'%3E%3Cpath d='M20 6H12L10 4H4C2.89543 4 2 4.89543 2 6V18C2 19.1046 2.89543 20 4 20H20C21.1046 20 22 19.1046 22 18V8C22 6.89543 21.1046 6 20 6Z' stroke='black' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E");
+}
+
+.empty-state {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    height: 100%;
+    text-align: center;
+    padding: 20px;
+    gap: 10px;
+    box-sizing: border-box;
+    animation: emptyStateFadeIn 0.3s var(--zen-library-easing) both;
+}
+
+.empty-state h3 {
+    margin: 0;
+    font-size: 16px;
+    font-weight: 600;
+    opacity: 0.9;
+}
+
+.empty-state p {
+    margin: 0;
+    font-size: 13px;
+    opacity: 0.6;
+    max-width: 250px;
+}
+
+.empty-icon {
+    width: 64px;
+    height: 64px;
+    background-color: currentColor;
+    opacity: 0.2;
+    margin-bottom: 8px;
+    mask-size: contain;
+    mask-repeat: no-repeat;
+    mask-position: center;
+    -moz-context-properties: fill, stroke;
+}
+
+.empty-icon.downloads-icon {
+    mask-image: url("chrome://browser/skin/downloads/downloads.svg");
+}
+
+.empty-icon.history-icon {
+    mask-image: url("chrome://browser/skin/history.svg");
+}
+
+.empty-icon.spaces-icon {
+    mask-image: url("chrome://browser/skin/window.svg");
+}
+
+.empty-icon.media-icon {
+    mask-image: url("chrome://global/skin/media/audio.svg"); /* Fallback guess */
 }
 `;
 
@@ -1254,6 +1544,7 @@
             this._historyItems = [];
             this._renderedItems = [];
             this._historySearchTerm = "";
+            this._downloadsSearchTerm = ""; // Initialize to empty string
             this._historyBatchSize = 30; // Reduced for smoother first render
             this._isHistoryLoading = false;
             this._renderedCount = 0;
@@ -1316,7 +1607,7 @@
                             iconSvg = `
 <svg class="icon downloads-icon" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
   <circle cx="12" cy="12" r="9" stroke="var(--zen-folder-stroke)" stroke-width="2" fill="var(--zen-folder-front-bgcolor)" fill-opacity="0"/>
-  <path d="M12 7V17M8 13L12 17L16 13" stroke="var(--zen-folder-stroke)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+  <path d="M12 8V16M9 13L12 16L15 13" stroke="var(--zen-folder-stroke)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
 </svg>`;
                         } else if (id === "history") {
                             iconSvg = `
@@ -1414,15 +1705,17 @@
 
         renderHistory() {
             // Main wrapper for switcher and panes
-            const wrapper = this.el("div", { className: "library-history-wrapper" });
+            const wrapper = this.el("div", {
+                className: "library-list-wrapper"
+            });
 
-            const panes = this.el("div", { className: "library-history-panes" });
+            const panes = this.el("div", { className: "library-list-panes" });
             wrapper.appendChild(panes);
 
             // History Pane
             const historyPane = this.el("div", { className: "history-pane" });
             const historyContainer = this.el("div", {
-                className: "library-history-container",
+                className: "library-list-container",
                 onscroll: (e) => {
                     const el = e.target;
                     if (el.scrollHeight - el.scrollTop - el.clientHeight < 200) {
@@ -1554,6 +1847,249 @@
             return wrapper;
         }
 
+        renderDownloads() {
+            // Main wrapper for switcher and panes
+            const wrapper = this.el("div", {
+                className: "library-list-wrapper"
+            });
+            const container = this.el("div", { className: "library-list-container" });
+            wrapper.appendChild(container);
+            this._downloadsContainer = container;
+
+            const startLoading = () => {
+                this.fetchDownloads().then(downloads => {
+                    this.renderDownloadsList(downloads);
+                    this._downloadsContainer.classList.add("library-content-fade-in");
+                    setTimeout(() => this._downloadsContainer.classList.add("scrollbar-visible"), 100);
+                });
+            };
+
+            // Show centered loading placeholder
+            const isTransitioning = window.gZenLibrary && window.gZenLibrary._isTransitioning;
+            const loading = this.el("div", { className: "empty-state library-content-fade-in" }, [
+                this.el("div", { className: "empty-icon downloads-icon" }),
+                this.el("h3", { textContent: "Loading downloads..." }),
+                this.el("p", { textContent: "Hang tight, we're gathering your download history." })
+            ]);
+            container.appendChild(loading);
+
+            const delay = isTransitioning ? 400 : 250;
+            setTimeout(() => {
+                const l = container.querySelector(".empty-state");
+                if (l) l.remove();
+                startLoading();
+            }, delay);
+
+            return wrapper;
+        }
+
+        async fetchDownloads() {
+            try {
+                const { DownloadHistory } = ChromeUtils.importESModule("resource://gre/modules/DownloadHistory.sys.mjs");
+                const { Downloads } = ChromeUtils.importESModule("resource://gre/modules/Downloads.sys.mjs");
+                const { PrivateBrowsingUtils } = ChromeUtils.importESModule("resource://gre/modules/PrivateBrowsingUtils.sys.mjs");
+
+                const isPrivate = PrivateBrowsingUtils.isContentWindowPrivate(window);
+                const list = await DownloadHistory.getList({ type: isPrivate ? Downloads.ALL : Downloads.PUBLIC });
+                const allDownloadsRaw = await list.getAll();
+
+                return allDownloadsRaw.map(d => {
+                    let filename = "Unknown Filename";
+                    let targetPath = "";
+                    let fileExists = false;
+
+                    if (d.target && d.target.path) {
+                        try {
+                            let file = Components.classes["@mozilla.org/file/local;1"].createInstance(Components.interfaces.nsIFile);
+                            file.initWithPath(d.target.path);
+                            fileExists = file.exists();
+                            filename = file.leafName;
+                            targetPath = d.target.path;
+                        } catch (e) {
+                            const pathParts = String(d.target.path).split(/[\\/]/);
+                            filename = pathParts.pop() || "ErrorInPathUtil";
+                        }
+                    }
+
+                    if ((filename === "Unknown Filename" || filename === "ErrorInPathUtil") && d.source && d.source.url) {
+                        try {
+                            const decodedUrl = decodeURIComponent(d.source.url);
+                            let urlObj;
+                            try {
+                                urlObj = new URL(decodedUrl);
+                                const pathSegments = urlObj.pathname.split("/");
+                                filename = pathSegments.pop() || pathSegments.pop() || "Unknown from URL Path";
+                            } catch (urlParseError) {
+                                const urlPartsDirect = String(d.source.url).split("/");
+                                const lastPartDirect = urlPartsDirect.pop() || urlPartsDirect.pop();
+                                filename = lastPartDirect.split("?")[0] || "Invalid URL Filename";
+                            }
+                        } catch (e) {
+                            const urlPartsDirect = String(d.source.url).split("/");
+                            const lastPartDirect = urlPartsDirect.pop() || urlPartsDirect.pop();
+                            filename = lastPartDirect.split("?")[0] || "Invalid URL Filename";
+                        }
+                    }
+
+                    let status = "unknown";
+                    let progressBytes = Number(d.bytesTransferredSoFar) || 0;
+                    let totalBytes = Number(d.totalBytes) || 0;
+
+                    if (d.succeeded) {
+                        status = "completed";
+                        if (d.target && d.target.size && Number(d.target.size) > totalBytes) {
+                            totalBytes = Number(d.target.size);
+                        }
+                        progressBytes = totalBytes;
+                    } else if (d.error || d.canceled) {
+                        status = "failed";
+                    } else if (d.stopped || d.hasPartialData || d.state === Downloads.STATE_PAUSED || d.state === Downloads.STATE_DOWNLOADING) {
+                        status = "paused";
+                    }
+
+                    if (status === "completed" && totalBytes === 0 && progressBytes > 0) {
+                        totalBytes = progressBytes;
+                    }
+
+                    if (d.target && d.target.path && !fileExists) {
+                        status = "deleted";
+                    }
+
+                    return {
+                        id: d.id,
+                        filename: String(filename || "FN_MISSING"),
+                        size: totalBytes,
+                        status: status,
+                        url: String(d.source?.url || "URL_MISSING"),
+                        timestamp: d.endTime || d.startTime || Date.now(),
+                        targetPath: String(targetPath || ""),
+                        raw: d
+                    };
+                }).filter(d => d.timestamp && (this._downloadsSearchTerm ? d.filename.toLowerCase().includes(this._downloadsSearchTerm.toLowerCase()) : true));
+
+            } catch (e) {
+                console.error("ZenLibrary: Error fetching downloads", e);
+                return [];
+            }
+        }
+
+        renderDownloadsList(downloads) {
+            if (!this._downloadsContainer) return;
+            this._downloadsContainer.innerHTML = "";
+            this._downloadsContainer.classList.add("scrollbar-visible");
+
+            if (downloads.length === 0) {
+                const emptyState = this.el("div", { className: "empty-state" }, [
+                    this.el("div", { className: "empty-icon downloads-icon" }),
+                    this.el("h3", { textContent: "No downloads found" }),
+                    this.el("p", { textContent: this._downloadsSearchTerm ? "Try a different search term." : "Your download history is empty." })
+                ]);
+                this._downloadsContainer.appendChild(emptyState);
+                return;
+            }
+
+            // Group by date
+            const groups = {};
+            const now = new Date();
+            downloads.forEach(d => {
+                const date = new Date(d.timestamp);
+                const diffTime = now - date;
+                const diffDays = Math.floor(diffTime / (1000 * 60 * 60 * 24));
+                let key = "Earlier";
+                if (diffDays === 0 && now.getDate() === date.getDate()) key = "Today";
+                else if (diffDays === 1) key = "Yesterday";
+                else if (diffDays < 7) key = date.toLocaleDateString(undefined, { weekday: "long" });
+                else if (diffDays < 30) key = "Last Month";
+
+                if (!groups[key]) groups[key] = [];
+                groups[key].push(d);
+            });
+
+            const order = ["Today", "Yesterday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday", "Sunday", "Last Month", "Earlier"];
+
+            order.forEach(key => {
+                if (!groups[key]) return;
+
+                this._downloadsContainer.appendChild(this.el("div", { className: "history-section-header", textContent: key }));
+
+                groups[key].sort((a, b) => b.timestamp - a.timestamp).forEach(item => {
+                    const timeStr = new Date(item.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+
+                    const row = this.el("div", {
+                        className: "library-list-item",
+                        onclick: (e) => {
+                            // Ignore clicks on the folder icon, handled separately
+                            if (e.target.closest('.item-folder-icon')) return;
+                            this.handleDownloadAction(item, "open");
+                        },
+                        oncontextmenu: (e) => {
+                            e.preventDefault();
+                            this.handleDownloadContextMenu(e, item);
+                        }
+                    }, [
+                        this.el("div", { className: "item-icon-container" }, [
+                            this.el("div", {
+                                className: "item-icon",
+                                style: `background-image: url('moz-icon://${item.targetPath}?size=32'); opacity: 1;`
+                            })
+                        ]),
+                        this.el("div", { className: "item-info" }, [
+                            this.el("div", { className: "item-title", textContent: item.filename }),
+                            this.el("div", { className: "item-url", textContent: `${this.formatBytes(item.size)} • ${item.status}` })
+                        ]),
+                        this.el("div", { className: "item-time", textContent: timeStr }),
+                        this.el("div", {
+                            className: "item-folder-icon",
+                            title: "Show in Folder",
+                            onclick: (e) => {
+                                e.stopPropagation();
+                                this.handleDownloadAction(item, "show");
+                            },
+                            innerHTML: `<div class="item-folder-mask"></div>`
+                        })
+                    ]);
+                    this._downloadsContainer.appendChild(row);
+                });
+            });
+
+            this._downloadsContainer.appendChild(this.el("div", { className: "history-bottom-spacer" }));
+        }
+
+        handleDownloadAction(item, action) {
+            try {
+                const file = Components.classes["@mozilla.org/file/local;1"].createInstance(Components.interfaces.nsIFile);
+                file.initWithPath(item.targetPath);
+
+                if (action === "open") {
+                    if (file.exists()) file.launch();
+                    else alert("File does not exist.");
+                } else if (action === "show") {
+                    if (file.exists()) file.reveal();
+                    else alert("File does not exist.");
+                }
+            } catch (e) {
+                console.error("ZenLibrary: Download action failed", e);
+            }
+        }
+
+        handleDownloadContextMenu(event, item) {
+            // Create a simple custom context menu or leverage a XUL one if possible.
+            // For now, simpler is better for stability.
+            // We can rely on right-click -> show in folder behavior?
+            // Or just make clicking it open it, and maybe a small button for folder?
+            // Let's keep it simple: Click = Open.
+        }
+
+        formatBytes(bytes, decimals = 2) {
+            if (!+bytes || bytes === 0) return "0 Bytes";
+            const k = 1024;
+            const dm = decimals < 0 ? 0 : decimals;
+            const sizes = ["Bytes", "KB", "MB", "GB", "TB", "PB", "EB", "ZB", "YB"];
+            const i = Math.floor(Math.log(bytes) / Math.log(k));
+            return `${parseFloat((bytes / Math.pow(k, i)).toFixed(dm))} ${sizes[i]}`;
+        }
+
+
         renderClosedWindows() {
             if (!this._closedWindowsContainer) return;
             this._closedWindowsContainer.innerHTML = "";
@@ -1577,7 +2113,7 @@
                 const title = win.title || `Window with ${tabsCount} tabs`;
 
                 const row = this.el("div", {
-                    className: "library-history-item",
+                    className: "library-list-item",
                     onclick: () => {
                         SessionStore.undoCloseWindow(index);
                         window.gZenLibrary.close();
@@ -1626,7 +2162,7 @@
                 const url = tabData.state.entries[tabData.state.index - 1].url;
 
                 const row = this.el("div", {
-                    className: "library-history-item",
+                    className: "library-list-item",
                     onclick: () => {
                         SessionStore.undoCloseTab(window, index);
                         window.gZenLibrary.close();
@@ -1744,7 +2280,7 @@
                     : item.timeStr;
 
                 const row = this.el("div", {
-                    className: "library-history-item",
+                    className: "library-list-item",
                     onclick: () => {
                         window.gBrowser.selectedTab = window.gBrowser.addTab(item.uri, {
                             triggeringPrincipal: Services.scriptSecurityManager.getSystemPrincipal(),
@@ -1812,11 +2348,14 @@
                         const searchInput = this.el("input", {
                             type: "text",
                             placeholder: `Search ${this.activeTab.charAt(0).toUpperCase() + this.activeTab.slice(1)}...`,
-                            value: this.activeTab === "history" ? this._historySearchTerm : "",
+                            value: this.activeTab === "history" ? this._historySearchTerm : (this.activeTab === "downloads" ? this._downloadsSearchTerm : ""),
                             oninput: (e) => {
                                 if (this.activeTab === "history") {
                                     this._historySearchTerm = e.target.value;
                                     this.renderHistoryBatch(true);
+                                } else if (this.activeTab === "downloads") {
+                                    this._downloadsSearchTerm = e.target.value;
+                                    this.fetchDownloads().then(downloads => this.renderDownloadsList(downloads));
                                 }
                             }
                         });
@@ -1892,12 +2431,18 @@
                         requestAnimationFrame(() => { grid.scrollLeft = oldScroll; });
                     }
 
-                    requestAnimationFrame(() => grid.classList.add("animation-complete"));
+                    requestAnimationFrame(() => grid.classList.add("scrollbar-visible"));
                 } else if (this.activeTab === "history") {
-                    if (!content.querySelector(".library-history-container") || tabChanged) {
+                    if (!content.querySelector(".library-list-container") || tabChanged) {
                         const historyEl = this.renderHistory();
                         content.innerHTML = "";
                         content.appendChild(historyEl);
+                    }
+                } else if (this.activeTab === "downloads") {
+                    if (!content.querySelector(".library-list-container") || tabChanged) {
+                        const downloadsEl = this.renderDownloads();
+                        content.innerHTML = "";
+                        content.appendChild(downloadsEl);
                     }
                 } else {
                     content.innerHTML = `<div class="empty-state library-content-fade-in">
