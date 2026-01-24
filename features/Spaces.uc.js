@@ -5,7 +5,8 @@
         static getWorkspaces() { return window.gZenWorkspaces ? window.gZenWorkspaces.getWorkspaces() : []; }
 
         static calculatePanelWidth(count) {
-            const total = 90 + 40 + (count * 240) + ((count - 1) * 16);
+            // sidebar (90) + grid padding (40) + cards (count * 240) + gaps (count * 16) + create-button (36 + 2 margin)
+            const total = 90 + 40 + (count * 240) + (count * 16) + 38;
             return Math.min(total, window.innerWidth * 0.8);
         }
 

@@ -268,6 +268,9 @@ zen-library, #zen-library-container {
         get activeTab() { return this._activeTab; }
         set activeTab(val) {
             if (this._activeTab === val) return;
+            if (this.media && typeof this.media._stopCurrentAudio === "function") {
+                this.media._stopCurrentAudio();
+            }
             this._activeTab = val;
             if (window.gZenLibrary) window.gZenLibrary.lastActiveTab = val;
             this.setAttribute("active-tab", val);
@@ -471,6 +474,9 @@ zen-library, #zen-library-container {
                             value: val,
                             oninput: (e) => {
                                 const v = e.target.value;
+                                if (this.media && typeof this.media._stopCurrentAudio === "function") {
+                                    this.media._stopCurrentAudio();
+                                }
                                 if (this.activeTab === "history" && this.history) {
                                     this.history._searchTerm = v;
                                     this.history.renderBatch(true);
@@ -490,6 +496,12 @@ zen-library, #zen-library-container {
                             searchInput
                         ]);
                         header.appendChild(searchContainer);
+
+                        // Support for module-specific header extensions (e.g. Media filter bar)
+                        const module = this[this.activeTab];
+                        if (module && typeof module.renderFilterBar === "function") {
+                            header.appendChild(module.renderFilterBar());
+                        }
                     }
                 } else {
                     header.innerHTML = "";
@@ -851,6 +863,9 @@ zen-library, #zen-library-container {
 
         close() {
             if (!this._isOpen || !this._element || this._isTransitioning) return;
+            if (this._modules.media && typeof this._modules.media._stopCurrentAudio === "function") {
+                this._modules.media._stopCurrentAudio();
+            }
             const el = this._element;
             this._isTransitioning = true;
             this._isOpen = false;
