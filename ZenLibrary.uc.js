@@ -32,6 +32,17 @@
 :root[zen-right-side="true"][zen-library-open-compact="true"] #urlbar:not([open]) {
     transform: translateX(calc(-1 * var(--zen-library-offset, 0px))) !important;
 }
+:root[zen-library-dragging="true"] #zen-tabbox-wrapper {
+    transform: translateX(calc(-1 * var(--zen-library-offset, 0px))) !important;
+    transition-delay: 0.1s !important;
+}
+:root[zen-right-side="true"][zen-library-dragging="true"] #zen-tabbox-wrapper {
+    transform: translateX(var(--zen-library-offset, 0px)) !important;
+    transition-delay: 0.1s !important;
+}
+#zen-tabbox-wrapper {
+    transition: transform 0.25s cubic-bezier(0.4, 0, 0.2, 1) !important;
+}
 .browserSidebarContainer.zen-glance-overlay {
     translate: calc(-1 * var(--zen-library-offset, 0px)) 0;
     transition: translate 0.5s var(--zen-library-easing);

@@ -13,6 +13,34 @@
             this._playingCard = null;
             this._durations = new Map();
             this._coverCache = new Map();
+            this._fileCache = new Map(); // Cache for Gecko File objects
+        }
+
+        async copyFile(item) {
+            try {
+                if (!item.file || !item.file.exists()) return;
+
+                const transferable = Cc["@mozilla.org/widget/transferable;1"].createInstance(Ci.nsITransferable);
+                transferable.init(null);
+
+                // Add the file flavor
+                transferable.addDataFlavor("application/x-moz-file");
+                transferable.setTransferData("application/x-moz-file", item.file);
+
+                // Also add as URL and text for compatibility
+                transferable.addDataFlavor("text/x-moz-url");
+                const urlString = item.url + "\n" + item.filename;
+                const urlData = Cc["@mozilla.org/supports-string;1"].createInstance(Ci.nsISupportsString);
+                urlData.data = urlString;
+                transferable.setTransferData("text/x-moz-url", urlData);
+
+                const clipboard = Cc["@mozilla.org/widget/clipboard;1"].getService(Ci.nsIClipboard);
+                clipboard.setData(transferable, null, Ci.nsIClipboard.kGlobalClipboard);
+
+                console.log("[MEDIA] File copied to clipboard:", item.filename);
+            } catch (err) {
+                console.error("[MEDIA] Failed to copy file:", err);
+            }
         }
 
         get el() { return this.library.el.bind(this.library); }
@@ -275,7 +303,7 @@
                                 else if (VIDEO_EXTS.includes(ext)) contentType = "video/" + ext;
                                 else if (AUDIO_EXTS.includes(ext)) contentType = "audio/" + ext;
 
-                                mediaFiles.push({
+                                const item = {
                                     id: `local_${file.path}_${file.lastModifiedTime}`,
                                     filename: filename,
                                     size: file.fileSize,
@@ -286,7 +314,16 @@
                                     targetPath: file.path,
                                     file: file,
                                     raw: { target: { path: file.path }, lastModified: file.lastModifiedTime }
-                                });
+                                };
+
+                                // Background cache valid File objects for instant high-quality drags
+                                if (!this._fileCache.has(item.id)) {
+                                    File.createFromNsIFile(file).then(geckoFile => {
+                                        this._fileCache.set(item.id, geckoFile);
+                                    }).catch(e => { });
+                                }
+
+                                mediaFiles.push(item);
                             } catch (e) { }
                         }
                     } catch (e) { }
@@ -406,158 +443,186 @@
                     dataset: { id: item.id },
                     draggable: true,
                     ondragstart: (e) => {
+                        // Reset webview position during drag
+                        document.documentElement.setAttribute("zen-library-dragging", "true");
+
                         try {
-                            // Check file exists
-                            if (!item.file || !item.file.exists()) {
-                                return;
-                            }
+                            if (!item.file || !item.file.exists()) return;
 
                             const dataTransfer = e.dataTransfer;
-                            dataTransfer.effectAllowed = "copyMove";
+                            dataTransfer.effectAllowed = "all";
 
-                            // Create a styled drag ghost image (matching library card style)
+                            // Create a styled drag ghost image
                             const ghost = document.createElement("div");
                             ghost.style.cssText = `
-                                position: fixed;
-                                top: -1000px;
-                                left: -1000px;
-                                width: 160px;
-                                background: #1e1e23;
-                                border-radius: 12px;
-                                overflow: hidden;
+                                position: fixed; top: -1000px; left: -1000px;
+                                width: 160px; background: #1e1e23; border-radius: 12px;
+                                overflow: hidden; z-index: 999999; pointer-events: none;
                                 box-shadow: 0 12px 40px rgba(0, 0, 0, 0.5), 0 0 0 1px rgba(255, 255, 255, 0.08);
-                                z-index: 999999;
                             `;
 
-                            // Add preview container
                             const previewWrap = document.createElement("div");
                             previewWrap.style.cssText = `
-                                width: 100%;
-                                height: 120px;
-                                overflow: hidden;
-                                display: flex;
-                                align-items: center;
-                                justify-content: center;
+                                width: 100%; height: 100px; overflow: hidden;
+                                display: flex; align-items: center; justify-content: center;
                                 background: rgba(255, 255, 255, 0.03);
                             `;
 
-                            // Add thumbnail or icon
-                            if (!isAudio) {
+                            if (!isAudio && !isVideo) {
                                 const thumb = document.createElement("img");
                                 thumb.src = fileUrl;
-                                thumb.style.cssText = `
-                                    width: 100%;
-                                    height: 100%;
-                                    object-fit: cover;
-                                `;
+                                thumb.style.cssText = `width: 100%; height: 100%; object-fit: cover;`;
                                 previewWrap.appendChild(thumb);
                             } else {
-                                const icon = document.createElement("div");
-                                icon.style.cssText = `
-                                    width: 60px;
-                                    height: 60px;
-                                    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-                                    border-radius: 12px;
-                                    display: flex;
-                                    align-items: center;
-                                    justify-content: center;
+                                const iconBox = document.createElement("div");
+                                iconBox.style.cssText = `
+                                    width: 56px; height: 56px; display: flex; align-items: center; justify-content: center;
+                                    background: linear-gradient(135deg, ${isAudio ? '#667eea 0%, #764ba2 100%' : '#1a1a1a 0%, #333 100%'});
+                                    border-radius: 14px; border: 2px solid rgba(255,255,255,0.1);
+                                    box-shadow: 0 4px 15px rgba(0,0,0,0.4);
                                 `;
-                                icon.innerHTML = `<svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2"><path d="M9 18V5l12-2v13"/><circle cx="6" cy="18" r="3"/><circle cx="18" cy="16" r="3"/></svg>`;
-                                previewWrap.appendChild(icon);
+                                if (isVideo) {
+                                    previewWrap.style.background = "repeating-linear-gradient(-45deg, #111, #111 6px, #1a1a1a 6px, #1a1a1a 12px)";
+                                    iconBox.innerHTML = `<svg width="28" height="28" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg"><path d="M8 5V19L19 12L8 5Z" fill="white"/></svg>`;
+                                } else {
+                                    iconBox.innerHTML = `<svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2.5"><path d="M9 18V5l12-2v13"/><circle cx="6" cy="18" r="3"/><circle cx="18" cy="16" r="3"/></svg>`;
+                                }
+                                previewWrap.appendChild(iconBox);
                             }
                             ghost.appendChild(previewWrap);
 
-                            // Add info section (like library card)
-                            const info = document.createElement("div");
-                            info.style.cssText = `
-                                padding: 10px 12px;
-                                display: flex;
-                                flex-direction: column;
-                                gap: 4px;
-                            `;
+                            const infoBox = document.createElement("div");
+                            infoBox.style.cssText = `padding: 10px 12px; display: flex; flex-direction: column; gap: 4px; border-top: 1px solid rgba(255,255,255,0.05);`;
+                            const titleEl = document.createElement("div");
+                            titleEl.textContent = item.filename;
+                            titleEl.style.cssText = `font-size: 11px; color: rgba(255,255,255,0.9); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; font-weight: 600;`;
+                            const metaEl = document.createElement("div");
+                            metaEl.textContent = this.formatBytes(item.size);
+                            metaEl.style.cssText = `font-size: 9px; color: rgba(255, 255, 255, 0.4);`;
+                            infoBox.appendChild(titleEl);
+                            infoBox.appendChild(metaEl);
+                            ghost.appendChild(infoBox);
 
-                            // Filename
-                            const title = document.createElement("div");
-                            title.textContent = item.filename.length > 20
-                                ? item.filename.slice(0, 17) + "..."
-                                : item.filename;
-                            title.style.cssText = `
-                                font-size: 12px;
-                                color: rgba(255, 255, 255, 0.9);
-                                white-space: nowrap;
-                                overflow: hidden;
-                                text-overflow: ellipsis;
-                                font-weight: 600;
-                            `;
-                            info.appendChild(title);
-
-                            // File size
-                            const meta = document.createElement("div");
-                            const sizeStr = this.formatBytes(item.size);
-                            meta.textContent = sizeStr;
-                            meta.style.cssText = `
-                                font-size: 10px;
-                                color: rgba(255, 255, 255, 0.5);
-                            `;
-                            info.appendChild(meta);
-
-                            ghost.appendChild(info);
-
-                            // Append to document, set as drag image, then remove after delay
                             document.documentElement.appendChild(ghost);
-                            dataTransfer.setDragImage(ghost, 80, 70);
+                            dataTransfer.setDragImage(ghost, 80, 50);
                             setTimeout(() => ghost.remove(), 0);
 
-                            // Read file content and create HTML5 File object for web pages
-                            const stream = Cc["@mozilla.org/network/file-input-stream;1"].createInstance(Ci.nsIFileInputStream);
-                            stream.init(item.file, 0x01, 0o444, 0);
-                            const bis = Cc["@mozilla.org/binaryinputstream;1"].createInstance(Ci.nsIBinaryInputStream);
-                            bis.setInputStream(stream);
-
-                            const bytes = bis.readByteArray(item.file.fileSize);
-                            stream.close();
-
-                            // Create a File object from the bytes
-                            const blob = new Blob([new Uint8Array(bytes)], { type: contentType });
-                            const file = new File([blob], item.filename, { type: contentType });
-
-                            // Use the items API to add the File
-                            dataTransfer.items.add(file);
-
-                            // Also set text fallbacks
-                            const spec = Services.io.newFileURI(item.file).spec;
-                            dataTransfer.setData("text/uri-list", spec);
+                            // Native transfer
+                            dataTransfer.setData("application/x-moz-file", item.file);
+                            const specStr = Services.io.newFileURI(item.file).spec;
+                            dataTransfer.setData("text/uri-list", specStr);
                             dataTransfer.setData("text/plain", item.filename);
+
+                            // FULL CONTENT TRANSFER: Use cached Gecko File object
+                            const cachedGeckoFile = this._fileCache.get(item.id);
+                            if (cachedGeckoFile) {
+                                dataTransfer.items.add(cachedGeckoFile);
+                            } else {
+                                // Background was too slow? Try to create one now (may lag slightly but ensures content)
+                                File.createFromNsIFile(item.file).then(f => {
+                                    this._fileCache.set(item.id, f);
+                                }).catch(() => { });
+                            }
 
                             e.stopPropagation();
                         } catch (err) {
                             console.error("Drag error:", err);
                         }
 
-                        // Add visual feedback class
                         card.classList.add("dragging");
                     },
                     ondragend: (e) => {
+                        document.documentElement.removeAttribute("zen-library-dragging");
                         card.classList.remove("dragging");
                     },
                     oncontextmenu: (e) => {
                         e.preventDefault();
                         e.stopPropagation();
 
-                        // Show file in folder (for Discord and apps that need OS-level drag)
-                        if (item.file && item.file.exists()) {
-                            try {
-                                item.file.reveal();
-                            } catch (err) {
-                                // Fallback: open parent folder
-                                try {
-                                    const parent = item.file.parent;
-                                    if (parent && parent.exists()) {
-                                        parent.launch();
-                                    }
-                                } catch (e) { }
+                        // Remove existing context menus
+                        const existingMenu = this.library.shadowRoot.querySelector(".media-context-menu");
+                        if (existingMenu) existingMenu.remove();
+
+                        const menu = this.el("div", {
+                            className: "media-context-menu",
+                            style: {
+                                position: "fixed",
+                                left: `${e.clientX}px`,
+                                top: `${e.clientY}px`,
+                                background: "#1e1e23",
+                                border: "1px solid rgba(255, 255, 255, 0.1)",
+                                borderRadius: "10px",
+                                padding: "5px",
+                                boxShadow: "0 10px 30px rgba(0,0,0,0.6)",
+                                zIndex: "1000000",
+                                minWidth: "150px",
+                                display: "flex",
+                                flexDirection: "column",
+                                gap: "2px"
                             }
-                        }
+                        });
+
+                        const createItem = (label, iconSvg, onClick) => {
+                            const iconWrapper = this.el("div", {
+                                style: {
+                                    width: "16px",
+                                    height: "16px",
+                                    display: "flex",
+                                    alignItems: "center",
+                                    justifyContent: "center",
+                                    opacity: "0.7"
+                                },
+                                innerHTML: iconSvg
+                            });
+
+                            const menuItem = this.el("div", {
+                                className: "context-menu-item",
+                                style: {
+                                    padding: "10px 12px",
+                                    fontSize: "12.5px",
+                                    color: "rgba(255,255,255,0.9)",
+                                    cursor: "pointer",
+                                    borderRadius: "6px",
+                                    display: "flex",
+                                    alignItems: "center",
+                                    gap: "10px",
+                                    transition: "background 0.2s"
+                                },
+                                onmousedown: (ev) => {
+                                    ev.preventDefault();
+                                    ev.stopPropagation();
+                                    onClick();
+                                    menu.remove();
+                                },
+                                onmouseover: (ev) => { ev.currentTarget.style.background = "rgba(255,255,255,0.1)"; },
+                                onmouseout: (ev) => { ev.currentTarget.style.background = "transparent"; }
+                            }, [
+                                iconWrapper,
+                                this.el("span", { textContent: label, style: "flex: 1;" })
+                            ]);
+                            return menuItem;
+                        };
+
+                        const clipboardSvg = `<svg width="100%" height="100%" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg"><path d="M16 4C16.93 4 17.395 4 17.7765 4.10222C18.8117 4.37962 19.6204 5.18827 19.8978 6.22354C20 6.60504 20 7.07003 20 8V17.2C20 18.8802 20 19.7202 19.673 20.362C19.3854 20.9265 18.9265 21.3854 18.362 21.673C17.7202 22 16.8802 22 15.2 22H8.8C7.11984 22 6.27976 22 5.63803 21.673C5.07354 21.3854 4.6146 20.9265 4.32698 20.362C4 19.7202 4 18.8802 4 17.2V8C4 7.07003 4 6.60504 4.10222 6.22354C4.37962 5.18827 5.18827 4.37962 6.22354 4.10222C6.60504 4 7.07003 4 8 4M9.6 6H14.4C14.9601 6 15.2401 6 15.454 5.89101C15.6422 5.79513 15.7951 5.64215 15.891 5.45399C16 5.24008 16 4.96005 16 4.4V3.6C16 3.03995 16 2.75992 15.891 2.54601C15.7951 2.35785 15.6422 2.20487 15.454 2.10899C15.2401 2 14.9601 2 14.4 2H9.6C9.03995 2 8.75992 2 8.54601 2.10899C8.35785 2.20487 8.20487 2.35785 8.10899 2.54601C8 2.75992 8 3.03995 8 3.6V4.4C8 4.96005 8 5.24008 8.10899 5.45399C8.20487 5.64215 8.35785 5.79513 8.54601 5.89101C8.75992 6 9.03995 6 9.6 6Z" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>`;
+                        const folderSvg = `<svg width="100%" height="100%" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg"><path d="M3 7V17C3 18.1046 3.89543 19 5 19H19C20.1046 19 21 18.1046 21 17V9C21 7.89543 20.1046 7 19 7H13L11 5H5C3.89543 5 3 5.89543 3 7Z" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>`;
+
+                        menu.appendChild(createItem("Copy File", clipboardSvg, () => this.copyFile(item)));
+                        menu.appendChild(createItem("Show in Folder", folderSvg, () => {
+                            if (item.file && item.file.exists()) {
+                                try { item.file.reveal(); } catch (err) { item.file.parent.launch(); }
+                            }
+                        }));
+
+                        this.library.shadowRoot.appendChild(menu);
+
+                        // Close menu on click elsewhere
+                        const closeMenu = (ev) => {
+                            if (!menu.contains(ev.target)) {
+                                menu.remove();
+                                document.removeEventListener("mouseup", closeMenu);
+                            }
+                        };
+                        document.addEventListener("mouseup", closeMenu);
                     },
                     onclick: (e) => {
                         if (isAudio) {
@@ -566,7 +631,7 @@
                             this.showGlance(item, e);
                         }
                     },
-                    title: `${item.filename}\n(Right-click to show in folder)`
+                    title: `${item.filename}\n(Right-click for options)`
                 });
 
                 const previewContainer = this.el("div", {
