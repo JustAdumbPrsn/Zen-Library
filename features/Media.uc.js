@@ -12,6 +12,7 @@
             this._playingId = null;
             this._playingCard = null;
             this._durations = new Map();
+            this._coverCache = new Map();
         }
 
         get el() { return this.library.el.bind(this.library); }
@@ -72,13 +73,11 @@
             const isTransitioning = window.gZenLibrary && window.gZenLibrary._isTransitioning;
             const loading = this.el("div", { className: "empty-state library-content-fade-in" });
 
-            // Use correct Media Icon SVG (Film Strip) - Consistent 64x64
-            const iconSvg = `
-<svg class="empty-icon media-icon" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
- <path d="M9 3L8 8M16 3L15 8M22 8H2M6.8 21H17.2C18.8802 21 19.7202 21 20.362 20.673C20.9265 20.3854 21.3854 19.9265 21.673 19.362C22 18.7202 22 17.8802 22 16.2V7.8C22 6.11984 22 5.27976 21.673 4.63803C21.3854 4.07354 20.9265 3.6146 20.362 3.32698C19.7202 3 18.8802 3 17.2 3H6.8C5.11984 3 4.27976 3 3.63803 3.32698C3.07354 3.6146 2.6146 4.07354 2.32698 4.63803C2 5.27976 2 6.11984 2 7.8V16.2C2 17.8802 2 18.7202 2.32698 19.362C2.6146 19.9265 3.07354 20.3854 3.63803 20.673C4.27976 21 5.11984 21 6.8 21Z" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
- </svg>`;
-            const iconContainer = this.el("div");
-            iconContainer.innerHTML = iconSvg;
+            // Use correct Media Icon SVG (Film Strip)
+            const iconSvg = `<svg class="empty-icon media-icon" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg"><path d="M9 3L8 8M16 3L15 8M22 8H2M6.8 21H17.2C18.8802 21 19.7202 21 20.362 20.673C20.9265 20.3854 21.3854 19.9265 21.673 19.362C22 18.7202 22 17.8802 22 16.2V7.8C22 6.11984 22 5.27976 21.673 4.63803C21.3854 4.07354 20.9265 3.6146 20.362 3.32698C19.7202 3 18.8802 3 17.2 3H6.8C5.11984 3 4.27976 3 3.63803 3.32698C3.07354 3.6146 2.6146 4.07354 2.32698 4.63803C2 5.27976 2 6.11984 2 7.8V16.2C2 17.8802 2 18.7202 2.32698 19.362C2.6146 19.9265 3.07354 20.3854 3.63803 20.673C4.27976 21 5.11984 21 6.8 21Z" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>`;
+            const iconContainer = this.el("div", {
+                innerHTML: iconSvg
+            });
             loading.appendChild(iconContainer.firstElementChild);
 
             loading.appendChild(this.el("h3", { textContent: "Gathering media..." }));
@@ -96,86 +95,207 @@
             return wrapper;
         }
 
+        async _extractCover(file) {
+            try {
+                // Read first 2MB to be safe for MP4/FLAC metadata
+                const stream = Cc["@mozilla.org/network/file-input-stream;1"].createInstance(Ci.nsIFileInputStream);
+                stream.init(file, 0x01, 0o444, 0);
+                const bis = Cc["@mozilla.org/binaryinputstream;1"].createInstance(Ci.nsIBinaryInputStream);
+                bis.setInputStream(stream);
+
+                const bytes = bis.readByteArray(Math.min(file.fileSize, 2048 * 1024));
+                stream.close();
+
+                const view = new DataView(new Uint8Array(bytes).buffer);
+
+                // 1. ID3v2 (MP3/WAV)
+                if (view.getUint8(0) === 0x49 && view.getUint8(1) === 0x44 && view.getUint8(2) === 0x33) {
+                    const version = view.getUint8(3);
+                    let offset = 10;
+                    const tagSize = ((view.getUint8(6) & 0x7f) << 21) | ((view.getUint8(7) & 0x7f) << 14) | ((view.getUint8(8) & 0x7f) << 7) | (view.getUint8(9) & 0x7f);
+
+                    while (offset < tagSize && offset < bytes.length - 10) {
+                        const frameId = String.fromCharCode(view.getUint8(offset), view.getUint8(offset + 1), view.getUint8(offset + 2), view.getUint8(offset + 3));
+                        let frameSize;
+                        if (version === 3) {
+                            frameSize = view.getUint32(offset + 4);
+                        } else if (version === 4) {
+                            frameSize = ((view.getUint8(offset + 4) & 0x7f) << 21) | ((view.getUint8(offset + 5) & 0x7f) << 14) | ((view.getUint8(offset + 6) & 0x7f) << 7) | (view.getUint8(offset + 7) & 0x7f);
+                        } else break;
+
+                        if (frameId === "APIC") {
+                            let innerOffset = offset + 10;
+                            const encoding = view.getUint8(innerOffset++);
+                            let mimeType = "";
+                            while (innerOffset < bytes.length && view.getUint8(innerOffset) !== 0) {
+                                mimeType += String.fromCharCode(view.getUint8(innerOffset++));
+                            }
+                            innerOffset++;
+                            const picType = view.getUint8(innerOffset++);
+                            if (encoding === 0 || encoding === 3) {
+                                while (innerOffset < bytes.length && view.getUint8(innerOffset) !== 0) innerOffset++;
+                                innerOffset++;
+                            } else {
+                                while (innerOffset < bytes.length - 1 && view.getUint16(innerOffset) !== 0) innerOffset += 2;
+                                innerOffset += 2;
+                            }
+                            if (innerOffset >= bytes.length) return null;
+                            const dataSize = (offset + 10 + frameSize) - innerOffset;
+                            if (dataSize <= 0) return null;
+                            const data = bytes.slice(innerOffset, innerOffset + dataSize);
+                            return URL.createObjectURL(new Blob([new Uint8Array(data)], { type: mimeType || "image/jpeg" }));
+                        }
+                        if (frameSize <= 0) break;
+                        offset += 10 + frameSize;
+                    }
+                }
+
+                // 2. FLAC
+                if (view.getUint8(0) === 0x66 && view.getUint8(1) === 0x4c && view.getUint8(2) === 0x61 && view.getUint8(3) === 0x43) {
+                    let offset = 4;
+                    let isLastBlock = false;
+                    while (!isLastBlock && offset < bytes.length - 4) {
+                        const header = view.getUint8(offset);
+                        isLastBlock = (header & 0x80) !== 0;
+                        const blockType = header & 0x7f;
+                        const blockSize = (view.getUint8(offset + 1) << 16) | (view.getUint8(offset + 2) << 8) | view.getUint8(offset + 3);
+                        if (blockType === 6) { // PICTURE
+                            let pOffset = offset + 4;
+                            pOffset += 4; // Skip type
+                            const mimeLen = view.getUint32(pOffset); pOffset += 4;
+                            let mimeType = "";
+                            for (let i = 0; i < mimeLen; i++) mimeType += String.fromCharCode(view.getUint8(pOffset++));
+                            const descLen = view.getUint32(pOffset); pOffset += 4;
+                            pOffset += descLen + 16; // Skip desc, w, h, d, c
+                            const dataLen = view.getUint32(pOffset); pOffset += 4;
+                            if (pOffset + dataLen <= bytes.length) {
+                                return URL.createObjectURL(new Blob([new Uint8Array(bytes.slice(pOffset, pOffset + dataLen))], { type: mimeType || "image/jpeg" }));
+                            }
+                        }
+                        offset += 4 + blockSize;
+                    }
+                }
+
+                // 3. MP4 (M4A/ALAC/MOV)
+                // Search for 'covr' inside 'ilst'
+                const findAtom = (start, end, target) => {
+                    let i = start;
+                    while (i < end - 8) {
+                        const size = view.getUint32(i);
+                        const type = String.fromCharCode(view.getUint8(i + 4), view.getUint8(i + 5), view.getUint8(i + 6), view.getUint8(i + 7));
+                        if (size === 0) break;
+                        if (type === target) return { start: i + 8, end: i + size };
+                        i += size;
+                    }
+                    return null;
+                };
+
+                const ftyp = findAtom(0, bytes.length, "ftyp");
+                if (ftyp) {
+                    const moov = findAtom(0, bytes.length, "moov");
+                    if (moov) {
+                        const udta = findAtom(moov.start, moov.end, "udta");
+                        if (udta) {
+                            const meta = findAtom(udta.start, udta.end, "meta");
+                            if (meta) {
+                                const ilst = findAtom(meta.start + 4, meta.end, "ilst"); // Skip 4 bytes for meta flag
+                                if (ilst) {
+                                    const covr = findAtom(ilst.start, ilst.end, "covr");
+                                    if (covr) {
+                                        const data = findAtom(covr.start, covr.end, "data");
+                                        if (data) {
+                                            // MP4 'data' atom: 8 bytes header, 4 bytes version/flag (skipped by findAtom), 4 bytes reserved
+                                            // Actually findAtom moves to start of inner content.
+                                            // The content of 'data' atom starts with 8 bytes: 4 flags + 4 empty
+                                            const pOffset = data.start + 8;
+                                            const dataLen = (data.end - data.start) - 8;
+                                            if (pOffset + dataLen <= bytes.length) {
+                                                return URL.createObjectURL(new Blob([new Uint8Array(bytes.slice(pOffset, pOffset + dataLen))], { type: "image/jpeg" }));
+                                            }
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+            } catch (e) { }
+            return null;
+        }
+
         async fetchDownloads() {
             try {
-                const { DownloadHistory } = ChromeUtils.importESModule("resource://gre/modules/DownloadHistory.sys.mjs");
-                const { Downloads } = ChromeUtils.importESModule("resource://gre/modules/Downloads.sys.mjs");
-                const { PrivateBrowsingUtils } = ChromeUtils.importESModule("resource://gre/modules/PrivateBrowsingUtils.sys.mjs");
+                const getDir = (key) => {
+                    try {
+                        return Services.dirsvc.get(key, Ci.nsIFile);
+                    } catch (e) { return null; }
+                };
 
-                const isPrivate = PrivateBrowsingUtils.isContentWindowPrivate(window);
-                const list = await DownloadHistory.getList({ type: isPrivate ? Downloads.ALL : Downloads.PUBLIC });
-                const allDownloadsRaw = await list.getAll();
-
-                return allDownloadsRaw.map((d, index) => {
-                    let filename = "Unknown Filename";
-                    let targetPath = "";
-                    let fileExists = false;
-
-                    if (d.target && d.target.path) {
-                        try {
-                            let file = Components.classes["@mozilla.org/file/local;1"].createInstance(Components.interfaces.nsIFile);
-                            file.initWithPath(d.target.path);
-                            fileExists = file.exists();
-                            filename = file.leafName;
-                            targetPath = d.target.path;
-                        } catch (e) {
-                            const pathParts = String(d.target.path).split(/[\\/]/);
-                            filename = pathParts.pop() || "ErrorInPathUtil";
-                        }
+                let downloadsDir = getDir("Dwnld"); // OS Downloads
+                if (!downloadsDir) {
+                    const home = getDir("Home");
+                    if (home) {
+                        downloadsDir = home.clone();
+                        downloadsDir.append("Downloads");
                     }
+                }
 
-                    if ((filename === "Unknown Filename" || filename === "ErrorInPathUtil") && d.source && d.source.url) {
-                        try {
-                            const decodedUrl = decodeURIComponent(d.source.url);
-                            let urlObj;
+                if (!downloadsDir || !downloadsDir.exists() || !downloadsDir.isDirectory()) {
+                    console.error("ZenLibrary: Could not find Downloads directory");
+                    return [];
+                }
+
+                const IMAGE_EXTS = ["jpg", "jpeg", "png", "gif", "webp", "svg", "avif", "ico", "bmp", "tiff", "tif", "heic", "heif"];
+                const VIDEO_EXTS = ["mp4", "webm", "mkv", "avi", "mov", "m4v", "3gp", "mpg", "mpeg", "flv", "ts", "ogv", "wmv"];
+                const AUDIO_EXTS = ["mp3", "wav", "ogg", "m4a", "aac", "flac", "opus", "m4b", "m4p", "wma", "alac", "amr", "aiff", "aif", "caf", "oga", "spx", "mid", "midi"];
+                const MEDIA_EXTS = [...IMAGE_EXTS, ...VIDEO_EXTS, ...AUDIO_EXTS];
+
+                const mediaFiles = [];
+
+                const scanDir = (dir, depth = 0) => {
+                    if (depth > 3) return;
+                    try {
+                        const entries = dir.directoryEntries;
+                        while (entries.hasMoreElements()) {
+                            const file = entries.getNext().QueryInterface(Ci.nsIFile);
                             try {
-                                urlObj = new URL(decodedUrl);
-                                const pathSegments = urlObj.pathname.split("/");
-                                filename = pathSegments.pop() || pathSegments.pop() || "Unknown from URL Path";
-                            } catch (urlParseError) {
-                                const urlPartsDirect = String(d.source.url).split("/");
-                                const lastPartDirect = urlPartsDirect.pop() || urlPartsDirect.pop();
-                                filename = lastPartDirect.split("?")[0] || "Invalid URL Filename";
-                            }
-                        } catch (e) {
-                            const urlPartsDirect = String(d.source.url).split("/");
-                            const lastPartDirect = urlPartsDirect.pop() || urlPartsDirect.pop();
-                            filename = lastPartDirect.split("?")[0] || "Invalid URL Filename";
+                                if (file.isDirectory()) {
+                                    if (file.leafName.startsWith(".")) continue;
+                                    scanDir(file, depth + 1);
+                                    continue;
+                                }
+
+                                const filename = file.leafName;
+                                const ext = filename.split('.').pop().toLowerCase();
+
+                                if (!MEDIA_EXTS.includes(ext)) continue;
+
+                                let contentType = "";
+                                if (IMAGE_EXTS.includes(ext)) contentType = "image/" + (ext === "jpg" ? "jpeg" : ext);
+                                else if (VIDEO_EXTS.includes(ext)) contentType = "video/" + ext;
+                                else if (AUDIO_EXTS.includes(ext)) contentType = "audio/" + ext;
+
+                                mediaFiles.push({
+                                    id: `local_${file.path}_${file.lastModifiedTime}`,
+                                    filename: filename,
+                                    size: file.fileSize,
+                                    status: "completed",
+                                    url: Services.io.newFileURI(file).spec,
+                                    contentType: contentType,
+                                    timestamp: file.lastModifiedTime,
+                                    targetPath: file.path,
+                                    file: file,
+                                    raw: { target: { path: file.path }, lastModified: file.lastModifiedTime }
+                                });
+                            } catch (e) { }
                         }
-                    }
+                    } catch (e) { }
+                };
 
-                    let status = "unknown";
-                    const isCompleted = d.succeeded || d.state === 1 || (d.progress === 100 && d.target?.path);
-                    const isFailed = d.error || d.canceled || d.state === 4 || d.state === 3;
-
-                    if (isCompleted) status = "completed";
-                    else if (isFailed) status = "failed";
-                    else if (d.state === 2) status = "paused";
-                    else if (d.startTime && !d.endTime) status = "downloading";
-
-                    if (d.target?.path && !fileExists) {
-                        status = "deleted";
-                    }
-
-                    let size = Number(d.totalBytes) || Number(d.fileSize) || 0;
-                    if (isCompleted && size === 0 && d.target?.size) {
-                        size = Number(d.target.size);
-                    }
-
-                    return {
-                        id: d.id || `local_id_${index}_${Date.now()}`,
-                        filename: String(filename || "FN_MISSING"),
-                        size: size,
-                        status: status,
-                        url: String(d.source?.url || "URL_MISSING"),
-                        contentType: String(d.contentType || ""),
-                        timestamp: d.endTime || d.startTime || Date.now(),
-                        targetPath: String(targetPath || ""),
-                        raw: d
-                    };
-                });
+                scanDir(downloadsDir);
+                return mediaFiles;
             } catch (e) {
-                console.error("ZenLibrary: Error fetching downloads", e);
+                console.error("ZenLibrary: Error scanning downloads", e);
                 return [];
             }
         }
@@ -190,13 +310,12 @@
             const AUDIO_EXTS = ["mp3", "wav", "ogg", "m4a", "aac", "flac", "opus", "m4b", "m4p", "wma", "alac", "amr", "aiff", "aif", "caf", "oga", "spx", "mid", "midi"];
 
             const mediaItems = downloads.filter(d => {
-                if (d.status === "deleted" || d.status === "failed") return false;
                 const ext = d.filename.split('.').pop().toLowerCase();
-                const contentType = d.contentType.toLowerCase();
+                const contentType = (d.contentType || "").toLowerCase();
 
                 const isImage = IMAGE_EXTS.includes(ext) || contentType.startsWith("image/");
-                const isVideo = VIDEO_EXTS.includes(ext) || contentType.startsWith("video/") || (contentType === "application/ogg" && (ext === "ogv" || ext === "ogg")) || contentType === "application/x-mpegurl";
-                const isAudio = AUDIO_EXTS.includes(ext) || contentType.startsWith("audio/") || (contentType === "application/ogg" && ext === "oga") || contentType === "application/x-flac";
+                const isVideo = VIDEO_EXTS.includes(ext) || contentType.startsWith("video/");
+                const isAudio = AUDIO_EXTS.includes(ext) || contentType.startsWith("audio/");
 
                 if (this._filter === "images" && !isImage) return false;
                 if (this._filter === "videos" && !isVideo) return false;
@@ -220,14 +339,16 @@
 
             if (mediaItems.length === 0) {
                 this._container.innerHTML = "";
-                const emptyState = this.el("div", { className: "empty-state" }, [
-                    this.el("div", {
-                        className: "empty-icon media-icon",
-                        innerHTML: `<svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg"><path d="M8.4 3H4.6C4.03995 3 3.75992 3 3.54601 3.10899C3.35785 3.20487 3.20487 3.35785 3.10899 3.54601C3 3.75992 3 4.03995 3 4.6V8.4C3 8.96005 3 9.24008 3.10899 9.45399C3.20487 9.64215 3.35785 9.79513 3.54601 9.89101C3.75992 10 4.03995 10 4.6 10H8.4C8.96005 10 9.24008 10 9.45399 9.89101C9.64215 9.79513 9.79513 9.64215 9.89101 9.45399C10 9.24008 10 8.96005 10 8.4V4.6C10 4.03995 10 3.75992 9.89101 3.54601C9.79513 3.35785 9.64215 3.20487 9.45399 3.10899C9.24008 3 8.96005 3 8.4 3Z"/><path d="M19.4 3H15.6C15.0399 3 14.7599 3 14.546 3.10899C14.3578 3.20487 14.2049 3.35785 14.109 3.54601C14 3.75992 14 4.03995 14 4.6V8.4C14 8.96005 14 9.24008 14.109 9.45399C14.2049 9.64215 14.3578 9.79513 14.546 9.89101C14.7599 10 15.0399 10 15.6 10H19.4C19.9601 10 20.2401 10 20.454 9.89101C20.6422 9.79513 20.7951 9.64215 20.891 9.45399C21 9.24008 21 8.96005 21 8.4V4.6C21 4.03995 21 3.75992 20.891 3.54601C20.7951 3.35785 20.6422 3.20487 20.454 3.10899C20.2401 3 19.9601 3 19.4 3Z"/><path d="M19.4 14H15.6C15.0399 14 14.7599 14 14.546 14.109C14.3578 14.2049 14.2049 14.3578 14.109 14.546C14 14.7599 14 15.0399 14 15.6V19.4C14 19.9601 14 20.2401 14.109 20.454C14.2049 20.6422 14.3578 20.7951 14.546 20.891C14.7599 21 15.0399 21 15.6 21H19.4C19.9601 21 20.2401 21 20.454 20.891C20.6422 20.7951 20.7951 20.6422 20.891 20.454C21 20.2401 21 19.9601 21 19.4V15.6C21 15.0399 21 14.7599 20.891 14.546C20.7951 14.3578 20.6422 14.2049 20.454 14.109C20.2401 14 19.9601 14 19.4 14Z"/><path d="M8.4 14H4.6C4.03995 14 3.75992 14 3.54601 14.109C3.35785 14.2049 3.20487 14.3578 3.10899 14.546C3 14.7599 3 15.0399 3 15.6V19.4C3 19.9601 3 20.2401 3.10899 20.454C3.20487 20.6422 3.35785 20.7951 3.54601 20.891C3.75992 21 4.03995 21 4.6 21H8.4C8.96005 21 9.24008 21 9.45399 20.891C9.64215 20.7951 9.79513 20.6422 9.89101 20.454C10 20.2401 10 19.9601 10 19.4V15.6C10 15.0399 10 14.7599 9.89101 14.546C9.79513 14.3578 9.64215 14.2049 9.45399 14.109C9.24008 14 8.96005 14 8.4 14Z"/></svg>`
-                    }),
-                    this.el("h3", { textContent: this._searchTerm ? "No matching media" : "No media found" }),
-                    this.el("p", { textContent: this._searchTerm ? "Try a different search term." : `We couldn't find any ${this._filter !== 'all' ? this._filter : 'images, videos, or audio files'} in your downloads.` })
-                ]);
+                const emptyState = this.el("div", { className: "empty-state" });
+
+                const iconSvg = `<svg class="empty-icon media-icon" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg"><path d="M9 3L8 8M16 3L15 8M22 8H2M6.8 21H17.2C18.8802 21 19.7202 21 20.362 20.673C20.9265 20.3854 21.3854 19.9265 21.673 19.362C22 18.7202 22 17.8802 22 16.2V7.8C22 6.11984 22 5.27976 21.673 4.63803C21.3854 4.07354 20.9265 3.6146 20.362 3.32698C19.7202 3 18.8802 3 17.2 3H6.8C5.11984 3 4.27976 3 3.63803 3.32698C3.07354 3.6146 2.6146 4.07354 2.32698 4.63803C2 5.27976 2 6.11984 2 7.8V16.2C2 17.8802 2 18.7202 2.32698 19.362C2.6146 19.9265 3.07354 20.3854 3.63803 20.673C4.27976 21 5.11984 21 6.8 21Z" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>`;
+                const iconContainer = this.el("div");
+                iconContainer.innerHTML = iconSvg;
+
+                emptyState.appendChild(iconContainer.firstElementChild);
+                emptyState.appendChild(this.el("h3", { textContent: this._searchTerm ? "No matching media" : "No media found" }));
+                emptyState.appendChild(this.el("p", { textContent: this._searchTerm ? "Try a different search term." : `We couldn't find any ${this._filter !== 'all' ? this._filter : 'images, videos, or audio files'} in your downloads.` }));
+
                 this._container.appendChild(emptyState);
                 return;
             }
@@ -235,11 +356,7 @@
             // Sort by TS
             mediaItems.sort((a, b) => b.timestamp - a.timestamp);
 
-            // Helper for columns - using the method from Spaces if available or fallback
-            // We'll define a standard way to get width
             const libWidth = parseFloat(this.library.style.getPropertyValue("--zen-library-width")) || 340;
-            // Assuming ZenLibrarySpaces is available globally as confirmed by user "files loaded"
-            // But if we are modularizing Spaces, we might need a safer check.
             let colCount = 1;
             try {
                 if (window.ZenLibrarySpacesRenderer && window.ZenLibrarySpacesRenderer.calculateMediaColumns) {
@@ -250,34 +367,39 @@
             } catch (e) { }
 
             const masonryWrapper = this.el("div", {
-                className: "media-masonry-wrapper",
-                style: `column-count: ${colCount};`
+                className: "media-masonry-wrapper"
             });
             const grid = this._container;
             grid.innerHTML = "";
             grid.appendChild(masonryWrapper);
+
+            // Create columns
+            const columns = [];
+            for (let i = 0; i < colCount; i++) {
+                const col = this.el("div", { className: "media-masonry-column" });
+                masonryWrapper.appendChild(col);
+                columns.push(col);
+            }
 
             // Smooth vertical scrolling
             grid.onwheel = (e) => {
                 if (e.deltaY !== 0) {
                     e.preventDefault();
                     if (e.deltaMode === 1) {
-                        grid.scrollBy({ top: e.deltaY * 37.5, behavior: "smooth" }); // 1.5x of 25 = 37.5, roughly 2.5x speed
+                        grid.scrollBy({ top: e.deltaY * 37.5, behavior: "smooth" });
                     } else {
                         grid.scrollTop += e.deltaY * 2.5;
                     }
                 }
             };
 
-            const fragment = document.createDocumentFragment();
-
-            mediaItems.forEach(item => {
+            mediaItems.forEach((item, index) => {
                 const ext = item.filename.split('.').pop().toLowerCase();
                 const contentType = item.contentType.toLowerCase();
                 const isVideo = VIDEO_EXTS.includes(ext) || contentType.startsWith("video/");
                 const isAudio = AUDIO_EXTS.includes(ext) || contentType.startsWith("audio/");
                 const isGif = ext === "gif" || contentType === "image/gif";
-                const fileUrl = "file://" + item.targetPath;
+                const fileUrl = item.url;
 
                 const card = this.el("div", {
                     className: `media-card ${isAudio && this._playingId === item.id ? 'playing' : ''}`,
@@ -322,40 +444,60 @@
                 } else if (isAudio) {
                     const audioIconContainer = this.el("div", {
                         className: "audio-preview-icon"
-                    }, [
-                        this.el("div", { className: "icon-mask icon-audio placeholder-icon" }),
-                        this.el("div", { className: "progress-bar-container" }, [
-                            this.el("div", { className: "progress-bar-fill" })
-                        ]),
-                        this.el("div", { className: "audio-control-overlay" }, [
-                            this.el("div", { className: "icon-mask icon-play" }),
-                            this.el("div", { className: "icon-mask icon-pause" })
-                        ])
-                    ]);
+                    });
+
+                    const cachedCover = this._coverCache.get(item.id);
+                    if (cachedCover) {
+                        audioIconContainer.appendChild(this.el("img", { src: cachedCover, className: "cover-art" }));
+                    } else {
+                        audioIconContainer.appendChild(this.el("div", { className: "icon-mask icon-audio placeholder-icon" }));
+
+                        // Only try extraction if we haven't failed before (cachedCover would be null if failed)
+                        if (cachedCover === undefined) {
+                            const updateCover = async () => {
+                                const coverUrl = await this._extractCover(item.file);
+                                this._coverCache.set(item.id, coverUrl);
+                                if (coverUrl) {
+                                    const placeholder = audioIconContainer.querySelector(".placeholder-icon");
+                                    if (placeholder) {
+                                        placeholder.replaceWith(this.el("img", { src: coverUrl, className: "cover-art" }));
+                                    }
+                                }
+                            };
+                            updateCover();
+                        }
+                    }
+
+                    audioIconContainer.appendChild(this.el("div", { className: "progress-bar-container" }, [
+                        this.el("div", { className: "progress-bar-fill" })
+                    ]));
+                    audioIconContainer.appendChild(this.el("div", { className: "audio-control-overlay" }, [
+                        this.el("div", { className: "icon-mask icon-play" }),
+                        this.el("div", { className: "icon-mask icon-pause" })
+                    ]));
                     previewContainer.appendChild(audioIconContainer);
 
                     const durationBadge = this.el("div", { className: "video-duration-badge", textContent: "..." });
 
-                    // Create DOM element for metadata (Exact match to video logic)
                     const audioEl = this.el("audio", {
                         src: fileUrl,
                         preload: "metadata",
-                        style: "display: none;" // Hidden but in DOM context
+                        style: "display: none;"
                     });
 
                     audioEl.addEventListener("loadedmetadata", () => {
                         const mins = Math.floor(audioEl.duration / 60);
                         const secs = Math.floor(audioEl.duration % 60);
                         durationBadge.textContent = `${mins}:${secs.toString().padStart(2, '0')}`;
-                        audioEl.remove(); // Cleanup after load
-                    });
-
-                    audioEl.addEventListener("error", () => {
-                        durationBadge.textContent = ""; // Clear if failed
                         audioEl.remove();
                     });
 
-                    previewContainer.appendChild(audioEl); // Must be appended for some browsers to load metadata
+                    audioEl.addEventListener("error", () => {
+                        durationBadge.textContent = "";
+                        audioEl.remove();
+                    });
+
+                    previewContainer.appendChild(audioEl);
                     previewContainer.appendChild(durationBadge);
                 } else {
                     const imgEl = this.el("img", {
@@ -382,15 +524,14 @@
 
                 card.appendChild(previewContainer);
                 card.appendChild(info);
-                fragment.appendChild(card);
-            });
 
-            masonryWrapper.appendChild(fragment);
+                // Distribute round-robin to columns
+                columns[index % colCount].appendChild(card);
+            });
         }
 
         _stopCurrentAudio() {
             if (this._currentAudio) {
-                // CRITICAL: Nullify handlers first to prevent race/logic loops
                 this._currentAudio.onended = null;
                 this._currentAudio.onerror = null;
                 this._currentAudio.pause();
@@ -402,7 +543,6 @@
                 const oldCard = this._container?.querySelector(`.media-card[data-id="${CSS.escape(this._playingId)}"]`);
                 if (oldCard) {
                     oldCard.classList.remove("playing");
-                    // Reset progress bar
                     const progress = oldCard.querySelector(".progress-bar-fill");
                     if (progress) progress.style.width = "0%";
                 }
@@ -412,26 +552,17 @@
         }
 
         toggleAudio(item, cardEl) {
-            const fileUrl = "file://" + item.targetPath;
-
-            // 1. Is this the same card?
+            const fileUrl = item.url;
             if (this._playingId === item.id) {
-                // Just pause it.
                 this._stopCurrentAudio();
                 return;
             }
-
-            // 2. Different card? (Or starting fresh)
-            // Stop EVERYTHING first. Global Reset.
             this._stopCurrentAudio();
-
-            // 3. Start New
             this._playingId = item.id;
             this._playingCard = cardEl;
             this._currentAudio = new Audio(fileUrl);
 
             this._currentAudio.onended = () => {
-                // Logic managed securely via _stopCurrentAudio
                 this._stopCurrentAudio();
             };
 
@@ -452,7 +583,6 @@
                 if (this._playingId === item.id) {
                     cardEl.classList.add("playing");
                 } else {
-                    // Race condition: user clicked something else while loading
                     this._stopCurrentAudio();
                 }
             }).catch(e => {
@@ -462,7 +592,7 @@
         }
 
         showGlance(item, event) {
-            const fileUrl = "file://" + item.targetPath;
+            const fileUrl = item.url;
             if (window.gZenGlanceManager) {
                 if (window.gZenGlanceManager.closeGlance) {
                     window.gZenGlanceManager.closeGlance();

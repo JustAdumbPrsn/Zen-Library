@@ -1853,9 +1853,20 @@
 }
 
 .media-masonry-wrapper {
-    column-width: 210px;
-    column-gap: 16px;
+    display: flex;
+    flex-direction: row;
+    align-items: flex-start;
+    gap: 16px;
     width: 100%;
+}
+
+.media-masonry-column {
+    display: flex;
+    flex-direction: column;
+    gap: 16px;
+    flex: 1;
+    min-width: 0;
+    /* Fix flex overflow */
 }
 
 
@@ -1872,8 +1883,8 @@
     position: relative;
     cursor: pointer;
     transition: background-color 0.2s ease, box-shadow 0.2s ease;
-    margin-bottom: 16px;
-    padding: 0;
+    margin-bottom: 0;
+    /* Handled by grid gap */
     transform: translateZ(0);
 }
 
@@ -1923,6 +1934,23 @@
     overflow: hidden;
     position: relative;
     border-radius: var(--border-radius-medium);
+}
+
+.audio-preview-icon {
+    width: 100%;
+    height: 100%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    position: relative;
+}
+
+.cover-art {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    display: block;
+    z-index: 0;
 }
 
 .gif-badge {
