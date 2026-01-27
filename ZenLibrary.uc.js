@@ -7,65 +7,6 @@
     }
 
     const _ucScriptPath = Components.stack.filename;
-    const GLOBAL_CSS = `
-:root[zen-library-open="true"] #navigator-toolbox,
-:root[zen-library-open-compact="true"] #navigator-toolbox,
-:root[zen-library-open="true"] #zen-sidebar-splitter,
-:root[zen-library-open-compact="true"] #zen-sidebar-splitter {
-    display: none !important;
-}
-:root[zen-library-open="true"] #browser,
-:root[zen-library-open-compact="true"] #browser {
-    overflow: hidden !important;
-}
-:root[zen-library-open="true"] #zen-appcontent-wrapper,
-:root[zen-library-open-compact="true"] #zen-appcontent-wrapper,
-:root[zen-library-open="true"] #urlbar:not([open]),
-:root[zen-library-open-compact="true"] #urlbar:not([open]) {
-    transform: translateX(var(--zen-library-offset, 0px)) !important;
-    transition: transform 0.25s cubic-bezier(0.4, 0, 0.2, 1);
-    width: 100% !important; 
-}
-:root[zen-right-side="true"][zen-library-open="true"] #zen-appcontent-wrapper,
-:root[zen-right-side="true"][zen-library-open-compact="true"] #zen-appcontent-wrapper,
-:root[zen-right-side="true"][zen-library-open="true"] #urlbar:not([open]),
-:root[zen-right-side="true"][zen-library-open-compact="true"] #urlbar:not([open]) {
-    transform: translateX(calc(-1 * var(--zen-library-offset, 0px))) !important;
-}
-:root[zen-library-dragging="true"] #zen-tabbox-wrapper {
-    transform: translateX(calc(-1 * var(--zen-library-offset, 0px))) !important;
-    transition-delay: 0.1s !important;
-}
-:root[zen-right-side="true"][zen-library-dragging="true"] #zen-tabbox-wrapper {
-    transform: translateX(var(--zen-library-offset, 0px)) !important;
-    transition-delay: 0.1s !important;
-}
-#zen-tabbox-wrapper {
-    transition: transform 0.25s cubic-bezier(0.4, 0, 0.2, 1) !important;
-}
-.browserSidebarContainer.zen-glance-overlay {
-    translate: calc(-1 * var(--zen-library-offset, 0px)) 0;
-    transition: translate 0.5s var(--zen-library-easing);
-}
-:root[zen-right-side="true"] .browserSidebarContainer.zen-glance-overlay {
-    translate: var(--zen-library-offset, 0px) 0;
-}
-:root:has(.zen-glance-overlay) #zen-appcontent-wrapper,
-:root:has(.zen-glance-overlay) #browser {
-    overflow: visible !important;
-}
-zen-library, #zen-library-container {
-    opacity: 1;
-    transition: opacity 0.2s ease !important;
-}
-:root:has(.zen-glance-overlay:not([fade-out="true"])) #zen-library-container {
-    opacity: 0.4 !important;
-}
-:root.zen-toolbox-fading-in #navigator-toolbox {
-    animation: zen-fade-in 0.3s cubic-bezier(0.25, 1, 0.5, 1) !important;
-}
-@keyframes zen-fade-in { from { opacity: 0; } to { opacity: 1; } }
-`;
 
     // Initialize features if they are not yet loaded (Assumption: they are loaded via UC loader or manual scripts)
     // If we needed to force load them, we would use Services.scriptloader.loadSubScript here.
@@ -662,12 +603,14 @@ zen-library, #zen-library-container {
         _init() {
             window.addEventListener("keydown", this._onKeyDown, true);
             if (!document.getElementById("zen-library-global-style")) {
-                const s = document.createElement("style"); s.id = "zen-library-global-style"; s.textContent = GLOBAL_CSS; document.head.appendChild(s);
+                const s = document.createElement("style"); s.id = "zen-library-global-style"; document.head.appendChild(s);
             }
 
-            // Background initialization after browser is ready
-            // Use a short delay to ensure feature modules are loaded
-            setTimeout(() => this._initModules(), 2000);
+            // Create toolbar button and initialize modules after browser is ready
+            setTimeout(() => {
+                this._initModules();
+                this._createToolbarButton();
+            }, 2000);
         }
 
         /**
@@ -695,6 +638,48 @@ zen-library, #zen-library-container {
                 }
             } catch (e) {
                 console.error("ZenLibrary: Module initialization error", e);
+            }
+        }
+
+        /**
+         * Create the toolbar button for toggling Zen Library
+         */
+        _createToolbarButton() {
+            console.log("[ZenLibrary] Creating toggle button for customizable UI");
+            
+            try {
+                CustomizableUI.createWidget({
+                    id: "zen-library-button",                // required
+                    type: "toolbarbutton",                   // "toolbaritem" or "toolbarbutton"
+                    label: "Zen Library",                    // optional (uses id when missing)
+                    tooltip: "Zen Library",                  // optional (uses id when missing)
+                    class: "zen-library-button",             // optional additional className
+                    callback: (ev, win) => {                 // Function called when clicked
+                        if (win.gZenLibrary) {
+                            win.gZenLibrary.toggle();
+                        }
+                    }
+                });
+                
+                // Add event listener as fallback in case callback doesn't work
+                setTimeout(() => {
+                    const button = document.getElementById("zen-library-button");
+                    if (button) {
+                        button.addEventListener("click", (ev) => {
+                            console.log("[ZenLibrary] Button clicked via event listener");
+                            if (window.gZenLibrary) {
+                                window.gZenLibrary.toggle();
+                            }
+                        });
+                        console.log("[ZenLibrary] Event listener added to button");
+                    } else {
+                        console.warn("[ZenLibrary] Button element not found for event listener");
+                    }
+                }, 1000);
+                
+                console.log("[ZenLibrary] Toggle button created successfully");
+            } catch (e) {
+                console.error("[ZenLibrary] Failed to create widget:", e);
             }
         }
 
@@ -921,5 +906,4 @@ zen-library, #zen-library-container {
     }
 
     window.gZenLibrary = new ZenLibrary();
-
 })();

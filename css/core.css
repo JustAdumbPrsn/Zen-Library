@@ -16,6 +16,11 @@
     --zen-folder-stroke: light-dark(color-mix(in srgb, var(--zen-primary-color) 50%, black), color-mix(in srgb, var(--zen-primary-color) 15%, #ebebeb));
 }
 
+#zen-library-button .toolbarbutton-icon {
+    list-style-image: url('chrome://sine/content/Zen Library/resources/zen-library.svg');
+    opacity: 0.6;
+}
+
 .zen-library-container {
     display: flex;
     flex-direction: row;

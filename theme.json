@@ -10,6 +10,7 @@
   "readme": "https://github.com/JustAdumbPrsn/Zen-Library/blob/main/README.md",
   "image": "https://private-user-images.githubusercontent.com/73780892/537569729-bfa5ee66-77e0-4d95-943d-8958bc40046a.png?jwt=eyJ0eXAiOiJKV1QiLCJhbGciOiJIUzI1NiJ9.eyJpc3MiOiJnaXRodWIuY29tIiwiYXVkIjoicmF3LmdpdGh1YnVzZXJjb250ZW50LmNvbSIsImtleSI6ImtleTUiLCJleHAiOjE3Njg4MjYyNjQsIm5iZiI6MTc2ODgyNTk2NCwicGF0aCI6Ii83Mzc4MDg5Mi81Mzc1Njk3MjktYmZhNWVlNjYtNzdlMC00ZDk1LTk0M2QtODk1OGJjNDAwNDZhLnBuZz9YLUFtei1BbGdvcml0aG09QVdTNC1ITUFDLVNIQTI1NiZYLUFtei1DcmVkZW50aWFsPUFLSUFWQ09EWUxTQTUzUFFLNFpBJTJGMjAyNjAxMTklMkZ1cy1lYXN0LTElMkZzMyUyRmF3czRfcmVxdWVzdCZYLUFtei1EYXRlPTIwMjYwMTE5VDEyMzI0NFomWC1BbXotRXhwaXJlcz0zMDAmWC1BbXotU2lnbmF0dXJlPWMxNmYxM2I4ODAxYWY5ODhiZmYzYjJhNTYxMjM2Y2YyMGE4NDgzMDY0MjljZmI2NzU0MDY4MzcyODU3YmE1NGYmWC1BbXotU2lnbmVkSGVhZGVycz1ob3N0In0.t322wCGGP9ex9A4w_g_NFBgfXEzVcxi78UC_FjZJCMo",
   "style": {
+    "chrome": "ZenLibrary.css"
   },
   "scripts": {
     "features/Downloads.uc.js": {
