@@ -772,6 +772,24 @@
                 return;
             }
 
+            // Override Ctrl+H to open Zen Library History (instead of native history)
+            const isHistoryShortcut = e.code === "KeyH" && (isMac ? e.metaKey : e.ctrlKey) && !e.shiftKey && !e.altKey;
+            if (isHistoryShortcut) {
+                e.preventDefault();
+                e.stopPropagation();
+                this.openTab("history");
+                return;
+            }
+
+            // Override Ctrl+J to open Zen Library Downloads (instead of native downloads)
+            const isDownloadsShortcut = e.code === "KeyJ" && (isMac ? e.metaKey : e.ctrlKey) && !e.shiftKey && !e.altKey;
+            if (isDownloadsShortcut) {
+                e.preventDefault();
+                e.stopPropagation();
+                this.openTab("downloads");
+                return;
+            }
+
             if (!this._isOpen || !this._element) return;
 
             // Allow closing with Escape
@@ -841,6 +859,41 @@
             }
             console.log("[ZenLibrary] Calling", this._isOpen ? "close()" : "open()");
             this._isOpen ? this.close() : this.open();
+        }
+        
+        /**
+         * Open the library with a specific tab selected, or close if already on that tab
+         * @param {string} tabName - The tab to open ("downloads", "history", "media", "spaces")
+         */
+        openTab(tabName) {
+            console.log("[ZenLibrary] openTab called with:", tabName);
+            
+            // Validate tab name
+            if (!tabName || !["downloads", "history", "media", "spaces"].includes(tabName)) {
+                console.log("[ZenLibrary] Invalid tab name:", tabName);
+                return;
+            }
+            
+            // If already open on the same tab, close the library
+            if (this._isOpen && this._element && this._element.activeTab === tabName) {
+                console.log("[ZenLibrary] Already open on tab:", tabName, "- closing");
+                this.close();
+                return;
+            }
+            
+            // Set the desired tab before opening
+            this.lastActiveTab = tabName;
+            
+            // If already open but on a different tab, switch to the requested tab
+            if (this._isOpen && this._element) {
+                console.log("[ZenLibrary] Already open, switching to tab:", tabName);
+                this._element.activeTab = tabName;
+                return;
+            }
+            
+            // Otherwise, open the library (it will use lastActiveTab)
+            console.log("[ZenLibrary] Opening library with tab:", tabName);
+            this.open();
         }
         open() {
             console.log("[ZenLibrary] Open called, _isOpen:", this._isOpen, "_isTransitioning:", this._isTransitioning);
