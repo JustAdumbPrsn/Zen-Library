@@ -27,7 +27,7 @@
 
 #zen-library-button .toolbarbutton-icon {
   list-style-image: url("chrome://sine/content/Zen Library/resources/zen-library.svg");
-  opacity: 0.6;
+  opacity: 0.5;
 }
 
 .zen-library-container {
