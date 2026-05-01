@@ -8,6 +8,7 @@
             this._searchTerm = "";
             this._cachedDownloads = null; // Pre-fetched data cache
             this._isFetching = false;
+            this._progressTimer = null;
         }
 
         /**
@@ -96,10 +97,13 @@
                 const { PrivateBrowsingUtils } = ChromeUtils.importESModule("resource://gre/modules/PrivateBrowsingUtils.sys.mjs");
 
                 const isPrivate = PrivateBrowsingUtils.isContentWindowPrivate(window);
-                const list = await DownloadHistory.getList({ type: isPrivate ? Downloads.ALL : Downloads.PUBLIC });
-                const allDownloadsRaw = await list.getAll();
+                const historyList = await DownloadHistory.getList({ type: isPrivate ? Downloads.ALL : Downloads.PUBLIC });
+                const allDownloadsRaw = await historyList.getAll();
+                const liveDownloads = await this.fetchLiveDownloads(Downloads);
 
                 return allDownloadsRaw.map(d => {
+                    const liveDownload = this.findMatchingLiveDownload(d, liveDownloads);
+                    const progressSource = liveDownload || d;
                     let filename = "Unknown Filename";
                     let targetPath = "";
                     let fileExists = false;
@@ -138,18 +142,20 @@
                     }
 
                     let status = "unknown";
-                    let progressBytes = Number(d.bytesTransferredSoFar) || 0;
-                    let totalBytes = Number(d.totalBytes) || 0;
+                    let progressBytes = Number(progressSource.currentBytes ?? progressSource.bytesTransferredSoFar) || 0;
+                    let totalBytes = Number(progressSource.totalBytes ?? d.totalBytes) || 0;
 
-                    if (d.succeeded) {
+                    if (progressSource.succeeded) {
                         status = "completed";
-                        if (d.target && d.target.size && Number(d.target.size) > totalBytes) {
-                            totalBytes = Number(d.target.size);
+                        if (progressSource.target && progressSource.target.size && Number(progressSource.target.size) > totalBytes) {
+                            totalBytes = Number(progressSource.target.size);
                         }
-                        progressBytes = totalBytes;
-                    } else if (d.error || d.canceled) {
+                        progressBytes = Number(progressSource.currentBytes || totalBytes) || totalBytes;
+                    } else if (progressSource.error || progressSource.canceled) {
                         status = "failed";
-                    } else if (d.stopped || d.hasPartialData || d.state === Downloads.STATE_PAUSED || d.state === Downloads.STATE_DOWNLOADING) {
+                    } else if (!progressSource.stopped || progressSource.state === Downloads.STATE_DOWNLOADING) {
+                        status = "downloading";
+                    } else if (progressSource.hasPartialData || progressSource.state === Downloads.STATE_PAUSED || progressSource.stopped) {
                         status = "paused";
                     }
 
@@ -157,7 +163,7 @@
                         totalBytes = progressBytes;
                     }
 
-                    if (d.target && d.target.path && !fileExists) {
+                    if (status === "completed" && d.target && d.target.path && !fileExists) {
                         status = "deleted";
                     }
 
@@ -165,11 +171,16 @@
                         id: d.id,
                         filename: String(filename || "FN_MISSING"),
                         size: totalBytes,
+                        progressBytes,
+                        totalBytes,
+                        percent: totalBytes > 0 ? Math.min(100, Math.max(0, (progressBytes / totalBytes) * 100)) : 0,
+                        estimatedSeconds: this.estimateRemainingSeconds(progressSource, progressBytes, totalBytes),
                         status: status,
                         url: String(d.source?.url || "URL_MISSING"),
                         timestamp: d.endTime || d.startTime || Date.now(),
                         targetPath: String(targetPath || ""),
-                        raw: d
+                        raw: liveDownload || d,
+                        historyRaw: d
                     };
                 }).filter(d => d.timestamp && (this._searchTerm ? d.filename.toLowerCase().includes(this._searchTerm.toLowerCase()) : true));
 
@@ -177,6 +188,84 @@
                 console.error("ZenLibrary: Error fetching downloads", e);
                 return [];
             }
+        }
+
+        async fetchLiveDownloads(Downloads) {
+            try {
+                const downloadApi = window.Downloads && typeof window.Downloads.getList === "function" ? window.Downloads : Downloads;
+                const listType = downloadApi.ALL || Downloads.ALL;
+                const list = await downloadApi.getList(listType);
+                return await list.getAll();
+            } catch (e) {
+                console.warn("[ZenLibrary Downloads] Live download lookup failed:", e);
+                return [];
+            }
+        }
+
+        findMatchingLiveDownload(download, liveDownloads) {
+            if (!liveDownloads || !liveDownloads.length) return null;
+
+            if (download.id != null) {
+                const byId = liveDownloads.find(dl => dl.id != null && String(dl.id) === String(download.id));
+                if (byId) return byId;
+            }
+
+            if (download.target?.path) {
+                const normalizedPath = this.normalizeDownloadPath(download.target.path);
+                const byPath = liveDownloads.find(dl => this.normalizeDownloadPath(dl.target?.path) === normalizedPath);
+                if (byPath) return byPath;
+            }
+
+            if (download.source?.url && download.startTime) {
+                const startTime = new Date(download.startTime).getTime();
+                const byUrlTime = liveDownloads.find(dl => {
+                    if (dl.source?.url !== download.source.url || !dl.startTime) return false;
+                    return Math.abs(new Date(dl.startTime).getTime() - startTime) < 5000;
+                });
+                if (byUrlTime) return byUrlTime;
+            }
+
+            return null;
+        }
+
+        normalizeDownloadPath(path) {
+            return typeof path === "string" ? path.replace(/\\/g, "/").toLowerCase() : "";
+        }
+
+        estimateRemainingSeconds(download, progressBytes, totalBytes) {
+            if (!totalBytes || !progressBytes || progressBytes >= totalBytes) return null;
+
+            const liveSpeed = Number(download.speed) || 0;
+            if (liveSpeed > 0) {
+                return Math.max(1, Math.round((totalBytes - progressBytes) / liveSpeed));
+            }
+
+            const start = download.startTime ? new Date(download.startTime).getTime() : 0;
+            const elapsedSeconds = start ? Math.max(1, (Date.now() - start) / 1000) : 0;
+            if (!elapsedSeconds) return null;
+
+            const bytesPerSecond = progressBytes / elapsedSeconds;
+            if (!bytesPerSecond || !Number.isFinite(bytesPerSecond)) return null;
+
+            return Math.max(1, Math.round((totalBytes - progressBytes) / bytesPerSecond));
+        }
+
+        scheduleProgressRefresh(downloads) {
+            if (this._progressTimer) {
+                clearTimeout(this._progressTimer);
+                this._progressTimer = null;
+            }
+
+            if (!downloads.some(d => d.status === "downloading")) return;
+
+            this._progressTimer = setTimeout(async () => {
+                this._progressTimer = null;
+                if (!this._container || this.library.activeTab !== "downloads") return;
+
+                const freshDownloads = await this.fetchDownloads();
+                this._cachedDownloads = freshDownloads;
+                this.renderList(freshDownloads);
+            }, 1000);
         }
 
         renderList(downloads) {
@@ -202,19 +291,32 @@
                     return;
                 }
 
-                // Group by date
+                // Group by date — compare calendar dates, not elapsed hours
                 const groups = {};
                 const now = new Date();
+                const todayMidnight = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+                const yesterdayMidnight = new Date(todayMidnight);
+                yesterdayMidnight.setDate(yesterdayMidnight.getDate() - 1);
+                const weekAgoMidnight = new Date(todayMidnight);
+                weekAgoMidnight.setDate(weekAgoMidnight.getDate() - 7);
+                const monthAgoMidnight = new Date(todayMidnight);
+                monthAgoMidnight.setDate(monthAgoMidnight.getDate() - 30);
+
                 downloads.forEach(d => {
                     const date = new Date(d.timestamp);
-                    const diffTime = now - date;
-                    const diffDays = Math.floor(diffTime / (1000 * 60 * 60 * 24));
-                    let key = "Earlier";
-                    if (diffDays === 0 && now.getDate() === date.getDate()) key = "Today";
-                    else if (diffDays === 1) key = "Yesterday";
-                    else if (diffDays < 7) key = date.toLocaleDateString(undefined, { weekday: "long" });
-                    else if (diffDays < 30) key = "Last Month";
-
+                    const dateMidnight = new Date(date.getFullYear(), date.getMonth(), date.getDate());
+                    let key;
+                    if (dateMidnight.getTime() === todayMidnight.getTime()) {
+                        key = "Today";
+                    } else if (dateMidnight.getTime() === yesterdayMidnight.getTime()) {
+                        key = "Yesterday";
+                    } else if (dateMidnight >= weekAgoMidnight) {
+                        key = date.toLocaleDateString(undefined, { weekday: "long" });
+                    } else if (dateMidnight >= monthAgoMidnight) {
+                        key = "Last Month";
+                    } else {
+                        key = "Earlier";
+                    }
                     if (!groups[key]) groups[key] = [];
                     groups[key].push(d);
                 });
@@ -228,8 +330,12 @@
 
                     groups[key].sort((a, b) => b.timestamp - a.timestamp).forEach(item => {
                         try {
-                            const timeStr = new Date(item.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+                            if (item.status === "downloading") {
+                                this._container.appendChild(this.createProgressItem(item));
+                                return;
+                            }
 
+                            const timeStr = new Date(item.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
                             const itemEl = document.createElement('zen-library-item');
                             if (!itemEl || typeof itemEl.setAttribute !== 'function') {
                                 console.error("ZenLibrary Error: zen-library-item custom element not properly registered");
@@ -249,7 +355,7 @@
                             };
                             itemEl.oncontextmenu = (e) => {
                                 e.preventDefault();
-                                this.handleContextMenu(e, item);
+                                this._showContextMenu(e, item, itemEl);
                             };
 
                             // Add drag-and-drop support for dragging to web pages
@@ -319,13 +425,91 @@
                 });
 
                 this._container.appendChild(this.el("div", { className: "history-bottom-spacer" }));
+                this.scheduleProgressRefresh(downloads);
             } catch (e) {
                 console.error("ZenLibrary Error in renderList:", e);
             }
         }
 
+        createProgressItem(item) {
+            const percentLabel = item.totalBytes > 0 ? `${Math.round(item.percent)}%` : "";
+            const totalLabel = item.totalBytes > 0 ? this.formatBytes(item.totalBytes) : "Unknown size";
+            const etaLabel = item.estimatedSeconds ? this.formatDuration(item.estimatedSeconds) : "Calculating";
+
+            const row = this.el("div", {
+                className: "library-download-progress-item",
+                oncontextmenu: (e) => {
+                    e.preventDefault();
+                    this._showContextMenu(e, item, row);
+                }
+            }, [
+                this.el("div", { className: "download-progress-icon-container" }, [
+                    this.el("div", {
+                        className: "download-progress-icon",
+                        style: item.targetPath ? `background-image: url("moz-icon://${item.targetPath}?size=32");` : ""
+                    })
+                ]),
+                this.el("div", { className: "download-progress-main" }, [
+                    this.el("div", { className: "download-progress-title-row" }, [
+                        this.el("span", { className: "download-progress-name", textContent: item.filename }),
+                        this.el("span", { className: "download-progress-percent", textContent: percentLabel })
+                    ]),
+                    this.el("div", { className: "download-progress-bar" }, [
+                        this.el("div", {
+                            className: "download-progress-fill",
+                            style: `width: ${item.totalBytes > 0 ? item.percent : 18}%;`
+                        })
+                    ]),
+                    this.el("div", { className: "download-progress-meta" }, [
+                        this.el("span", { textContent: `${this.formatBytes(item.progressBytes)} of ${totalLabel}` }),
+                        this.el("span", { textContent: etaLabel })
+                    ])
+                ]),
+                this.el("button", {
+                    className: "download-progress-cancel",
+                    title: "Cancel download",
+                    "aria-label": "Cancel download",
+                    onclick: (e) => {
+                        e.stopPropagation();
+                        this.handleAction(item, "cancel");
+                    }
+                }, [this.el("span", { className: "download-progress-cancel-icon", "aria-hidden": "true" })])
+            ]);
+
+            return row;
+        }
+
         handleAction(item, action) {
             try {
+                if (action === "open-link") {
+                    window.gBrowser.selectedTab = window.gBrowser.addTab(item.url, {
+                        triggeringPrincipal: Services.scriptSecurityManager.getSystemPrincipal(),
+                    });
+                    window.gZenLibrary.close();
+                    return;
+                }
+
+                if (action === "pause") {
+                    if (item.raw?.cancel) Promise.resolve(item.raw.cancel()).catch(() => { });
+                    setTimeout(() => this.sync(), 150);
+                    return;
+                }
+
+                if (action === "resume") {
+                    if (item.raw?.start) Promise.resolve(item.raw.start()).catch(() => { });
+                    setTimeout(() => this.sync(), 150);
+                    return;
+                }
+
+                if (action === "cancel") {
+                    if (item.raw?.cancel) Promise.resolve(item.raw.cancel()).catch(() => { });
+                    if (item.raw?.removePartialData) {
+                        Promise.resolve(item.raw.removePartialData()).catch(() => { });
+                    }
+                    setTimeout(() => this.sync(), 150);
+                    return;
+                }
+
                 const file = Components.classes["@mozilla.org/file/local;1"].createInstance(Components.interfaces.nsIFile);
                 file.initWithPath(item.targetPath);
 
@@ -345,6 +529,103 @@
             // Placeholder
         }
 
+        _ensureContextMenu() {
+            if (document.getElementById("zen-downloads-context-menu")) return;
+            const popup = document.createXULElement("menupopup");
+            popup.id = "zen-downloads-context-menu";
+
+            const openLinkItem = document.createXULElement("menuitem");
+            openLinkItem.id = "zen-downloads-ctx-open-link";
+            openLinkItem.setAttribute("label", "Open Download Link");
+
+            const pauseItem = document.createXULElement("menuitem");
+            pauseItem.id = "zen-downloads-ctx-pause";
+            pauseItem.setAttribute("label", "Pause");
+
+            const renameItem = document.createXULElement("menuitem");
+            renameItem.id = "zen-downloads-ctx-rename";
+            renameItem.setAttribute("label", "Rename file");
+
+            const deleteItem = document.createXULElement("menuitem");
+            deleteItem.id = "zen-downloads-ctx-delete";
+            deleteItem.setAttribute("label", "Delete from history");
+
+            popup.appendChild(openLinkItem);
+            popup.appendChild(pauseItem);
+            popup.appendChild(document.createXULElement("menuseparator"));
+            popup.appendChild(renameItem);
+            popup.appendChild(document.createXULElement("menuseparator"));
+            popup.appendChild(deleteItem);
+            (document.getElementById("mainPopupSet") || document.body).appendChild(popup);
+        }
+
+        _showContextMenu(e, item, itemEl) {
+            this._ensureContextMenu();
+            const popup = document.getElementById("zen-downloads-context-menu");
+
+            for (const id of ["zen-downloads-ctx-open-link", "zen-downloads-ctx-pause", "zen-downloads-ctx-rename", "zen-downloads-ctx-delete"]) {
+                const el = document.getElementById(id);
+                if (el) el.replaceWith(el.cloneNode(true));
+            }
+
+            document.getElementById("zen-downloads-ctx-open-link").addEventListener("command", () => {
+                this.handleAction(item, "open-link");
+            });
+
+            const pauseItem = document.getElementById("zen-downloads-ctx-pause");
+            const canPauseOrResume = item.status === "downloading" || item.status === "paused";
+            pauseItem.hidden = !canPauseOrResume;
+            pauseItem.setAttribute("label", item.status === "paused" ? "Resume" : "Pause");
+            pauseItem.addEventListener("command", () => {
+                this.handleAction(item, item.status === "paused" ? "resume" : "pause");
+            });
+
+            document.getElementById("zen-downloads-ctx-rename").addEventListener("command", () => {
+                if (!item.targetPath || item.status === "deleted") return;
+                const input = { value: item.filename };
+                const ok = Services.prompt.prompt(window, "Rename File", null, input, null, { value: false });
+                if (!ok || !input.value.trim() || input.value.trim() === item.filename) return;
+                try {
+                    const file = Components.classes["@mozilla.org/file/local;1"].createInstance(Components.interfaces.nsIFile);
+                    file.initWithPath(item.targetPath);
+                    if (!file.exists()) return;
+                    const newName = input.value.trim();
+                    file.moveTo(file.parent, newName);
+                    item.filename = newName;
+                    item.targetPath = file.parent.path + (file.parent.path.endsWith("\\") ? "" : "\\") + newName;
+                    itemEl.setAttribute("title", newName);
+                    if (this._cachedDownloads) {
+                        const cached = this._cachedDownloads.find(d => d.id === item.id);
+                        if (cached) cached.filename = newName;
+                    }
+                } catch (err) {
+                    console.error("[ZenLibrary Downloads] Rename failed:", err);
+                }
+            });
+
+            document.getElementById("zen-downloads-ctx-delete").addEventListener("command", async () => {
+                try {
+                    const { DownloadHistory } = ChromeUtils.importESModule("resource://gre/modules/DownloadHistory.sys.mjs");
+                    const { Downloads } = ChromeUtils.importESModule("resource://gre/modules/Downloads.sys.mjs");
+                    const { PrivateBrowsingUtils } = ChromeUtils.importESModule("resource://gre/modules/PrivateBrowsingUtils.sys.mjs");
+                    const isPrivate = PrivateBrowsingUtils.isContentWindowPrivate(window);
+                    const list = await DownloadHistory.getList({ type: isPrivate ? Downloads.ALL : Downloads.PUBLIC });
+                    await list.remove(item.historyRaw || item.raw);
+                    itemEl.style.transition = "opacity 0.15s, transform 0.15s";
+                    itemEl.style.opacity = "0";
+                    itemEl.style.transform = "translateX(-8px)";
+                    setTimeout(() => {
+                        this._cachedDownloads = this._cachedDownloads?.filter(d => d.id !== item.id) ?? null;
+                        if (this._cachedDownloads) this.renderList(this._cachedDownloads);
+                    }, 160);
+                } catch (err) {
+                    console.error("[ZenLibrary Downloads] Delete failed:", err);
+                }
+            });
+
+            popup.openPopupAtScreen(e.screenX, e.screenY, true);
+        }
+
         formatBytes(bytes, decimals = 2) {
             if (!+bytes || bytes === 0) return "0 Bytes";
             const k = 1024;
@@ -352,6 +633,17 @@
             const sizes = ["Bytes", "KB", "MB", "GB", "TB", "PB", "EB", "ZB", "YB"];
             const i = Math.floor(Math.log(bytes) / Math.log(k));
             return `${parseFloat((bytes / Math.pow(k, i)).toFixed(dm))} ${sizes[i]}`;
+        }
+
+        formatDuration(seconds) {
+            if (!Number.isFinite(seconds) || seconds <= 0) return "Calculating";
+            if (seconds < 60) return `${seconds}s left`;
+            const minutes = Math.floor(seconds / 60);
+            const remainingSeconds = seconds % 60;
+            if (minutes < 60) return `${minutes}m ${remainingSeconds}s left`;
+            const hours = Math.floor(minutes / 60);
+            const remainingMinutes = minutes % 60;
+            return `${hours}h ${remainingMinutes}m left`;
         }
 
         getContentTypeFromFilename(filename) {

@@ -2,11 +2,14 @@
 
 (function () {
     class ZenLibrarySpaces {
+        static CARD_WIDTH = 224;
+        static CARD_GAP = 16;
+
         static getWorkspaces() { return window.gZenWorkspaces ? window.gZenWorkspaces.getWorkspaces() : []; }
 
         static calculatePanelWidth(count) {
-            // sidebar (90) + grid padding (40) + cards (count * 240) + gaps (count * 16) + create-button (36 + 2 margin)
-            const total = 90 + 40 + (count * 240) + (count * 16) + 38;
+            // sidebar (90) + grid padding (40) + cards + gaps + create-button (36 + 2 margin)
+            const total = 90 + 40 + (count * this.CARD_WIDTH) + (count * this.CARD_GAP) + 38;
             return Math.min(total, window.innerWidth * 0.8);
         }
 
@@ -238,10 +241,20 @@
 
                 const editBtn = this.el("div", {
                     className: "library-workspace-edit-button",
-                    title: "Edit Workspace"
+                    title: "Edit Theme"
                 }, [this.el("div")]);
 
                 editBtn.addEventListener("click", (e) => {
+                    e.stopPropagation();
+                    this.editWorkspaceTheme(ws, e);
+                });
+
+                const menuBtn = this.el("div", {
+                    className: "library-workspace-menu-button",
+                    title: "Space Options"
+                }, [this.el("div")]);
+
+                menuBtn.addEventListener("click", (e) => {
                     e.stopPropagation();
                     this.showWorkspaceMenu(e, ws);
                 });
@@ -441,7 +454,7 @@
                         const gridRect = grid.getBoundingClientRect();
                         const scrollLeft = grid.scrollLeft;
                         const paddingLeft = 16;
-                        const cardWidthPlusGap = 240 + 16;
+                        const cardWidthPlusGap = ZenLibrarySpaces.CARD_WIDTH + ZenLibrarySpaces.CARD_GAP;
 
                         const localX = mouseX - gridRect.left + scrollLeft - paddingLeft;
                         let targetIdx = Math.floor(localX / cardWidthPlusGap);
@@ -508,7 +521,7 @@
 
                 const footer = this.el("div", { className: "library-card-footer" }, [
                     dragHandle,
-                    this.el("div", { textContent: "⋯" })
+                    menuBtn
                 ]);
 
                 card.appendChild(header);
@@ -693,88 +706,62 @@
             container.appendChild(itemEl);
         }
 
-        showWorkspaceMenu(e, ws) {
-            const button = e.currentTarget;
-            const shadow = this.library.shadowRoot;
+        _ensureWorkspaceMenu() {
+            if (document.getElementById("zen-library-workspace-menu")) return;
 
-            // Remove existing menu if any
-            const existing = shadow.querySelector(".library-workspace-menu");
-            if (existing) existing.remove();
+            const popup = document.createXULElement("menupopup");
+            popup.id = "zen-library-workspace-menu";
 
-            const svgs = {
-                rename: `<svg width="100%" height="100%" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg"><path d="M21 18L19.9999 19.094C19.4695 19.6741 18.7502 20 18.0002 20C17.2501 20 16.5308 19.6741 16.0004 19.094C15.4693 18.5151 14.75 18.1901 14.0002 18.1901C13.2504 18.1901 12.5312 18.5151 12 19.094M3.00003 20H4.67457C5.16376 20 5.40835 20 5.63852 19.9447C5.84259 19.8957 6.03768 19.8149 6.21663 19.7053C6.41846 19.5816 6.59141 19.4086 6.93732 19.0627L19.5001 6.49998C20.3285 5.67156 20.3285 4.32841 19.5001 3.49998C18.6716 2.67156 17.3285 2.67156 16.5001 3.49998L3.93729 16.0627C3.59139 16.4086 3.41843 16.5816 3.29475 16.7834C3.18509 16.9624 3.10428 17.1574 3.05529 17.3615C3.00003 17.5917 3.00003 17.8363 3.00003 18.3255V20Z" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>`,
-                icon: `<svg width="100%" height="100%" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg"><path d="M9 3.5V2M5.06066 5.06066L4 4M5.06066 13L4 14.0607M13 5.06066L14.0607 4M3.5 9H2M15.8645 16.1896L13.3727 20.817C13.0881 21.3457 12.9457 21.61 12.7745 21.6769C12.6259 21.7349 12.4585 21.7185 12.324 21.6328C12.1689 21.534 12.0806 21.2471 11.9038 20.6733L8.44519 9.44525C8.3008 8.97651 8.2286 8.74213 8.28669 8.58383C8.33729 8.44595 8.44595 8.33729 8.58383 8.2867C8.74213 8.22861 8.9765 8.3008 9.44525 8.44519L20.6732 11.9038C21.247 12.0806 21.5339 12.169 21.6327 12.324C21.7185 12.4586 21.7348 12.6259 21.6768 12.7745C21.61 12.9458 21.3456 13.0881 20.817 13.3728L16.1896 15.8645C16.111 15.9068 16.0717 15.9279 16.0374 15.9551C16.0068 15.9792 15.9792 16.0068 15.9551 16.0374C15.9279 16.0717 15.9068 16.111 15.8645 16.1896Z" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>`,
-                theme: `<svg width="100%" height="100%" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg"><path d="M8.99997 11.2224L12.7778 15.0002M7.97485 20.975C6.60801 22.3419 4 22.0002 2 22.0002C3.0251 20.0002 1.65827 17.3921 3.0251 16.0253C4.39194 14.6585 6.60801 14.6585 7.97485 16.0253C9.34168 17.3921 9.34168 19.6082 7.97485 20.975ZM11.9216 15.9248L21.0587 6.05671C21.8635 5.18755 21.8375 3.83776 20.9999 3.00017C20.1624 2.16258 18.8126 2.13663 17.9434 2.94141L8.07534 12.0785C7.5654 12.5507 7.31043 12.7868 7.16173 13.0385C6.80514 13.6423 6.79079 14.3887 7.12391 15.0057C7.26283 15.2631 7.50853 15.5088 7.99995 16.0002C8.49136 16.4916 8.73707 16.7373 8.99438 16.8762C9.6114 17.2093 10.3578 17.195 10.9616 16.8384C11.2134 16.6897 11.4494 16.4347 11.9216 15.9248Z" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>`,
-                profile: `<svg width="100%" height="100%" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg"><path d="M22 21V19C22 17.1362 20.7252 15.5701 19 15.126M15.5 3.29076C16.9659 3.88415 18 5.32131 18 7C18 8.67869 16.9659 10.1159 15.5 10.7092M17 21C17 19.1362 17 18.2044 16.6955 17.4693C16.2895 16.4892 15.5108 15.7105 14.5307 15.3045C13.7956 15 12.8638 15 11 15H8C6.13623 15 5.20435 15 4.46927 15.3045C3.48915 15.7105 2.71046 16.4892 2.30448 17.4693C2 18.2044 2 19.1362 2 21M13.5 7C13.5 9.20914 11.7091 11 9.5 11C7.29086 11 5.5 9.20914 5.5 7C5.5 4.79086 7.29086 3 9.5 3C11.7091 3 13.5 4.79086 13.5 7Z" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>`,
-                unload: `<svg width="100%" height="100%" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg"><path d="M4.93 4.93L19.07 19.07M22 12C22 17.5228 17.5228 22 12 22C6.47715 22 2 17.5228 2 12C2 6.47715 6.47715 2 12 2C17.5228 2 22 6.47715 22 12Z" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>`
-            };
+            const renameItem = document.createXULElement("menuitem");
+            renameItem.id = "zen-library-workspace-menu-rename";
+            renameItem.setAttribute("label", "Rename Space");
 
-            const card = button.closest(".library-workspace-card");
-            const menu = this.el("div", { className: "library-workspace-menu" }, [
-                this.createMenuItem("Rename", svgs.rename, (e) => this.renameWorkspace(ws)),
-                this.createMenuItem("Change Icon", svgs.icon, (e) => this.changeWorkspaceIcon(ws, button)),
-                this.createMenuItem("Edit Theme", svgs.theme, (e) => this.editWorkspaceTheme(ws, e)),
-                this.createMenuItem("Unload Space", svgs.unload, (e) => this.unloadWorkspace(ws))
-            ]);
+            const iconItem = document.createXULElement("menuitem");
+            iconItem.id = "zen-library-workspace-menu-icon";
+            iconItem.setAttribute("label", "Change Icon");
 
-            // Copy theme variables for hover states and colors
-            if (card) {
-                const vars = ["--ws-tab-hover-color", "--ws-tab-selected-color", "--ws-primary-color"];
-                vars.forEach(v => menu.style.setProperty(v, card.style.getPropertyValue(v)));
-                if (card.classList.contains("dark")) menu.classList.add("dark");
-            }
+            const themeItem = document.createXULElement("menuitem");
+            themeItem.id = "zen-library-workspace-menu-theme";
+            themeItem.setAttribute("label", "Edit Theme");
 
-            shadow.appendChild(menu);
+            const unloadItem = document.createXULElement("menuitem");
+            unloadItem.id = "zen-library-workspace-menu-unload";
+            unloadItem.setAttribute("label", "Unload Space");
 
-            // Position it
-            const rect = button.getBoundingClientRect();
-            const grid = shadow.querySelector(".library-workspace-grid");
-            const gridRect = grid.getBoundingClientRect();
-
-            // Check if we have enough space below, else show above
-            let top = rect.bottom - gridRect.top + 4;
-            const menuHeight = 180; // Estimate
-            if (top + menuHeight > gridRect.height) {
-                top = rect.top - gridRect.top - menuHeight - 4;
-            }
-
-            menu.style.top = top + "px";
-            menu.style.left = (rect.left - gridRect.left) + "px";
-
-            // Click away and cleanup
-            const closeMenu = (ev) => {
-                // Don't close if clicking in the main menu OR the container submenu
-                if (!menu.contains(ev.target) && !ev.target.closest(".library-container-submenu")) {
-                    menu.classList.add("fade-out");
-                    setTimeout(() => menu.remove(), 150);
-                    window.removeEventListener("mousedown", closeMenu);
-                    window.removeEventListener("wheel", closeMenu);
-                }
-            };
-            window.addEventListener("mousedown", closeMenu);
-            window.addEventListener("wheel", closeMenu);
+            popup.appendChild(renameItem);
+            popup.appendChild(iconItem);
+            popup.appendChild(themeItem);
+            popup.appendChild(document.createXULElement("menuseparator"));
+            popup.appendChild(unloadItem);
+            document.getElementById("mainPopupSet")?.appendChild(popup) || document.body.appendChild(popup);
         }
 
-        createMenuItem(label, iconSvg, onclick, autoClose = true) {
-            const item = this.el("div", {
-                className: "menu-item",
-                onclick: (e) => {
-                    e.stopPropagation(); // Always stop propagation
-                    onclick(e);
-                    // Close menu after action if requested
-                    if (autoClose) {
-                        const menu = e.target.closest(".library-workspace-menu");
-                        if (menu) {
-                            menu.classList.add("fade-out");
-                            setTimeout(() => menu.remove(), 150);
-                        }
-                    }
-                }
-            }, [
-                this.el("div", { className: "menu-icon", innerHTML: iconSvg }),
-                this.el("span", { textContent: label })
-            ]);
-            return item;
+        showWorkspaceMenu(e, ws) {
+            const button = e.currentTarget;
+            this._ensureWorkspaceMenu();
+
+            const popup = document.getElementById("zen-library-workspace-menu");
+            const renameItem = document.getElementById("zen-library-workspace-menu-rename");
+            const iconItem = document.getElementById("zen-library-workspace-menu-icon");
+            const themeItem = document.getElementById("zen-library-workspace-menu-theme");
+            const unloadItem = document.getElementById("zen-library-workspace-menu-unload");
+
+            const newRename = renameItem.cloneNode(true);
+            const newIcon = iconItem.cloneNode(true);
+            const newTheme = themeItem.cloneNode(true);
+            const newUnload = unloadItem.cloneNode(true);
+
+            renameItem.replaceWith(newRename);
+            iconItem.replaceWith(newIcon);
+            themeItem.replaceWith(newTheme);
+            unloadItem.replaceWith(newUnload);
+
+            newRename.addEventListener("command", () => this.renameWorkspace(ws));
+            newIcon.addEventListener("command", () => this.changeWorkspaceIcon(ws, button));
+            newTheme.addEventListener("command", (event) => this.editWorkspaceTheme(ws, event));
+            newUnload.addEventListener("command", () => this.unloadWorkspace(ws));
+
+            popup.openPopup(button, "after_end", 0, 4, true, false);
         }
 
         startInlineRename(e, ws) {

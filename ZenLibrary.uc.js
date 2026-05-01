@@ -8,8 +8,22 @@
 
     const _ucScriptPath = Components.stack.filename;
 
-    // Initialize features if they are not yet loaded (Assumption: they are loaded via UC loader or manual scripts)
-    // If we needed to force load them, we would use Services.scriptloader.loadSubScript here.
+    // Load feature modules that may not have been loaded yet
+    const _loadFeatureIfMissing = (windowProp, relPath) => {
+        if (window[windowProp]) return;
+        try {
+            const scriptPath = _ucScriptPath.replace(/[^/\\]*\.uc\.js(\?.*)?$/i, relPath);
+            Services.scriptloader.loadSubScript(scriptPath, window);
+        } catch (e) {
+            console.error(`[ZenLibrary] Failed to load ${relPath}:`, e);
+        }
+    };
+
+    _loadFeatureIfMissing("ZenLibraryDownloads", "features/Downloads.uc.js");
+    _loadFeatureIfMissing("ZenLibraryHistory",   "features/History.uc.js");
+    _loadFeatureIfMissing("ZenLibraryMedia",     "features/Media.uc.js");
+    _loadFeatureIfMissing("ZenLibrarySpaces",    "features/Spaces.uc.js");
+    _loadFeatureIfMissing("ZenLibraryBoosts",    "features/Boosts.uc.js");
 
     /**
      * Reusable Component for Library Items
@@ -214,12 +228,14 @@
             this.history = preInit.history || (window.ZenLibraryHistory ? new window.ZenLibraryHistory(this) : null);
             this.media = preInit.media || (window.ZenLibraryMedia ? new window.ZenLibraryMedia(this) : null);
             this.spaces = preInit.spaces || (window.ZenLibrarySpaces ? new window.ZenLibrarySpaces(this) : null);
+            this.boosts = preInit.boosts || (window.ZenLibraryBoosts ? new window.ZenLibraryBoosts(this) : null);
 
             // Update the library reference on pre-initialized modules so they can use our el() helper
             if (this.downloads) this.downloads.library = this;
             if (this.history) this.history.library = this;
             if (this.media) this.media.library = this;
             if (this.spaces) this.spaces.library = this;
+            if (this.boosts) this.boosts.library = this;
         }
 
         get activeTab() { return this._activeTab; }
@@ -267,7 +283,7 @@
 
                     const sidebarItemsContainer = document.createElement("div");
                     sidebarItemsContainer.className = "sidebar-items";
-                    const sidebarItems = ["downloads", "media", "history", "spaces"];
+                    const sidebarItems = ["downloads", "media", "history", "spaces", "boosts"];
                     const parser = new DOMParser();
 
                     sidebarItems.forEach(id => {
@@ -321,6 +337,13 @@
   <g class="front">
     <rect class="front-rect" x="9" y="6" width="10" height="14" rx="2" stroke="var(--zen-folder-stroke)" stroke-width="2" fill="var(--zen-folder-front-bgcolor)" fill-opacity="0"/>
   </g>
+</svg>`;
+                        } else if (id === "boosts") {
+                            iconSvg = `
+<svg class="icon boosts-icon" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+  <path d="M12 2L14.5 9H22L16 13.5L18.5 20.5L12 16L5.5 20.5L8 13.5L2 9H9.5L12 2Z"
+    stroke="var(--zen-folder-stroke)" stroke-width="2" stroke-linejoin="round"
+    fill="var(--zen-folder-front-bgcolor)" fill-opacity="0"/>
 </svg>`;
                         }
 
@@ -454,6 +477,9 @@
                                 } else if (this.activeTab === "media" && this.media) {
                                     this.media._searchTerm = v;
                                     this.media.fetchDownloads().then(d => this.media.renderList(d));
+                                } else if (this.activeTab === "boosts" && this.boosts) {
+                                    this.boosts._searchTerm = v;
+                                    this.boosts.renderList();
                                 }
                             }
                         });
@@ -484,6 +510,7 @@
                 if (!this.history && window.ZenLibraryHistory) this.history = new window.ZenLibraryHistory(this);
                 if (!this.media && window.ZenLibraryMedia) this.media = new window.ZenLibraryMedia(this);
                 if (!this.spaces && window.ZenLibrarySpaces) this.spaces = new window.ZenLibrarySpaces(this);
+                if (!this.boosts && window.ZenLibraryBoosts) this.boosts = new window.ZenLibraryBoosts(this);
 
                 if (this.activeTab === "spaces" && this.spaces) {
                     // Spaces has its own intelligent re-render check usually
@@ -507,6 +534,12 @@
                 else if (this.activeTab === "media" && this.media) {
                     if (!content.querySelector(".media-grid") || tabChanged) {
                         elToAppend = this.media.render();
+                        needsAppend = true;
+                    }
+                }
+                else if (this.activeTab === "boosts" && this.boosts) {
+                    if (!content.querySelector(".library-list-container") || tabChanged) {
+                        elToAppend = this.boosts.render();
                         needsAppend = true;
                     }
                 }
@@ -613,7 +646,8 @@
                 downloads: null,
                 history: null,
                 media: null,
-                spaces: null
+                spaces: null,
+                boosts: null
             };
 
             this._init();
@@ -658,6 +692,10 @@
                 }
                 if (window.ZenLibrarySpaces && !this._modules.spaces) {
                     this._modules.spaces = new window.ZenLibrarySpaces(shell);
+                }
+                if (window.ZenLibraryBoosts && !this._modules.boosts) {
+                    this._modules.boosts = new window.ZenLibraryBoosts(shell);
+                    if (this._modules.boosts.init) this._modules.boosts.init();
                 }
             } catch (e) {
                 console.error("ZenLibrary: Module initialization error", e);
@@ -869,7 +907,7 @@
             console.log("[ZenLibrary] openTab called with:", tabName);
             
             // Validate tab name
-            if (!tabName || !["downloads", "history", "media", "spaces"].includes(tabName)) {
+            if (!tabName || !["downloads", "history", "media", "spaces", "boosts"].includes(tabName)) {
                 console.log("[ZenLibrary] Invalid tab name:", tabName);
                 return;
             }

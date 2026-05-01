@@ -538,61 +538,7 @@
                     oncontextmenu: (e) => {
                         e.preventDefault();
                         e.stopPropagation();
-
-                        // Remove existing context menus
-                        const existingMenu = this.library.shadowRoot.querySelector(".media-context-menu");
-                        if (existingMenu) existingMenu.remove();
-
-                        const menu = this.el("div", {
-                            className: "media-context-menu",
-                            style: `left: ${e.clientX}px; top: ${e.clientY}px;`
-                        });
-
-                        const createItem = (label, iconSvg, onClick) => {
-                            const iconWrapper = this.el("div", {
-                                className: "menu-icon",
-                                innerHTML: iconSvg
-                            });
-
-                            const menuItem = this.el("div", {
-                                className: "media-menu-item",
-                                onclick: (ev) => {
-                                    ev.preventDefault();
-                                    ev.stopPropagation();
-                                    onClick();
-                                    // Animation handle
-                                    menu.style.animation = "menuSpringOut 0.12s cubic-bezier(0.4, 0, 0.2, 1) forwards";
-                                    setTimeout(() => menu.remove(), 120);
-                                    document.removeEventListener("mousedown", closeMenu);
-                                }
-                            }, [
-                                iconWrapper,
-                                this.el("span", { textContent: label, style: "flex: 1;" })
-                            ]);
-                            return menuItem;
-                        };
-
-                        const clipboardSvg = `<svg width="100%" height="100%" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg"><path d="M16 4C16.93 4 17.395 4 17.7765 4.10222C18.8117 4.37962 19.6204 5.18827 19.8978 6.22354C20 6.60504 20 7.07003 20 8V17.2C20 18.8802 20 19.7202 19.673 20.362C19.3854 20.9265 18.9265 21.3854 18.362 21.673C17.7202 22 16.8802 22 15.2 22H8.8C7.11984 22 6.27976 22 5.63803 21.673C5.07354 21.3854 4.6146 20.9265 4.32698 20.362C4 19.7202 4 18.8802 4 17.2V8C4 7.07003 4 6.60504 4.10222 6.22354C4.37962 5.18827 5.18827 4.37962 6.22354 4.10222C6.60504 4 7.07003 4 8 4M9.6 6H14.4C14.9601 6 15.2401 6 15.454 5.89101C15.6422 5.79513 15.7951 5.64215 15.891 5.45399C16 5.24008 16 4.96005 16 4.4V3.6C16 3.03995 16 2.75992 15.891 2.54601C15.7951 2.35785 15.6422 2.20487 15.454 2.10899C15.2401 2 14.9601 2 14.4 2H9.6C9.03995 2 8.75992 2 8.54601 2.10899C8.35785 2.20487 8.20487 2.35785 8.10899 2.54601C8 2.75992 8 3.03995 8 3.6V4.4C8 4.96005 8 5.24008 8.10899 5.45399C8.20487 5.64215 8.35785 5.79513 8.54601 5.89101C8.75992 6 9.03995 6 9.6 6Z" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>`;
-                        const folderSvg = `<svg width="100%" height="100%" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg"><path d="M3 7V17C3 18.1046 3.89543 19 5 19H19C20.1046 19 21 18.1046 21 17V9C21 7.89543 20.1046 7 19 7H13L11 5H5C3.89543 5 3 5.89543 3 7Z" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>`;
-
-                        menu.appendChild(createItem("Copy File", clipboardSvg, () => this.copyFile(item)));
-                        menu.appendChild(createItem("Show in Folder", folderSvg, () => {
-                            if (item.file && item.file.exists()) {
-                                try { item.file.reveal(); } catch (err) { item.file.parent.launch(); }
-                            }
-                        }));
-
-                        this.library.shadowRoot.appendChild(menu);
-
-                        // Close menu on click elsewhere
-                        const closeMenu = (ev) => {
-                            if (!menu.contains(ev.target)) {
-                                menu.style.animation = "menuSpringOut 0.12s cubic-bezier(0.4, 0, 0.2, 1) forwards";
-                                setTimeout(() => menu.remove(), 120);
-                                document.removeEventListener("mousedown", closeMenu);
-                            }
-                        };
-                        document.addEventListener("mousedown", closeMenu);
+                        this._showContextMenu(e, item);
                     },
                     onclick: (e) => {
                         if (isAudio) {
@@ -718,6 +664,92 @@
                 // Distribute round-robin to columns
                 columns[index % colCount].appendChild(card);
             });
+        }
+
+        _ensureContextMenu() {
+            if (document.getElementById("zen-media-context-menu")) return;
+            const popup = document.createXULElement("menupopup");
+            popup.id = "zen-media-context-menu";
+
+            const copyItem = document.createXULElement("menuitem");
+            copyItem.id = "zen-media-ctx-copy";
+            copyItem.setAttribute("label", "Copy file");
+
+            const showItem = document.createXULElement("menuitem");
+            showItem.id = "zen-media-ctx-show";
+            showItem.setAttribute("label", "Show in folder");
+
+            const renameItem = document.createXULElement("menuitem");
+            renameItem.id = "zen-media-ctx-rename";
+            renameItem.setAttribute("label", "Rename file");
+
+            const deleteItem = document.createXULElement("menuitem");
+            deleteItem.id = "zen-media-ctx-delete";
+            deleteItem.setAttribute("label", "Delete file");
+
+            popup.appendChild(copyItem);
+            popup.appendChild(showItem);
+            popup.appendChild(document.createXULElement("menuseparator"));
+            popup.appendChild(renameItem);
+            popup.appendChild(deleteItem);
+            (document.getElementById("mainPopupSet") || document.body).appendChild(popup);
+        }
+
+        _showContextMenu(e, item) {
+            this._ensureContextMenu();
+            const popup = document.getElementById("zen-media-context-menu");
+
+            // Clone all items to rebind listeners
+            for (const id of ["zen-media-ctx-copy", "zen-media-ctx-show", "zen-media-ctx-rename", "zen-media-ctx-delete"]) {
+                const el = document.getElementById(id);
+                if (el) el.replaceWith(el.cloneNode(true));
+            }
+
+            document.getElementById("zen-media-ctx-copy").addEventListener("command", () => this.copyFile(item));
+
+            document.getElementById("zen-media-ctx-show").addEventListener("command", () => {
+                if (item.file && item.file.exists()) {
+                    try { item.file.reveal(); } catch (_) { item.file.parent.launch(); }
+                }
+            });
+
+            document.getElementById("zen-media-ctx-rename").addEventListener("command", () => {
+                if (!item.file || !item.file.exists()) return;
+                const input = { value: item.filename };
+                const ok = Services.prompt.prompt(window, "Rename File", null, input, null, { value: false });
+                if (!ok || !input.value.trim() || input.value.trim() === item.filename) return;
+                try {
+                    const newName = input.value.trim();
+                    item.file.moveTo(item.file.parent, newName);
+                    // Update card title in place
+                    const card = this._container?.querySelector(`.media-card[data-id="${CSS.escape(item.id)}"]`);
+                    if (card) card.querySelector(".media-title").textContent = newName;
+                    item.filename = newName;
+                    item.id = `local_${item.file.path}_${item.file.lastModifiedTime}`;
+                } catch (err) {
+                    console.error("[ZenLibrary Media] Rename failed:", err);
+                }
+            });
+
+            document.getElementById("zen-media-ctx-delete").addEventListener("command", () => {
+                if (!item.file) return;
+                const confirmed = Services.prompt.confirm(window, "Delete File", `Delete "${item.filename}"? This cannot be undone.`);
+                if (!confirmed) return;
+                try {
+                    if (item.file.exists()) item.file.remove(false);
+                    const card = this._container?.querySelector(`.media-card[data-id="${CSS.escape(item.id)}"]`);
+                    if (card) {
+                        card.style.transition = "opacity 0.15s, transform 0.15s";
+                        card.style.opacity = "0";
+                        card.style.transform = "scale(0.95)";
+                        setTimeout(() => card.remove(), 160);
+                    }
+                } catch (err) {
+                    console.error("[ZenLibrary Media] Delete failed:", err);
+                }
+            });
+
+            popup.openPopupAtScreen(e.screenX, e.screenY, true);
         }
 
         _stopCurrentAudio() {

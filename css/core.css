@@ -142,6 +142,7 @@
 
 /* SIDEBAR */
 #zen-library-sidebar-container {
+    -moz-window-dragging: drag;
   width: var(--zen-library-sidebar-width);
   min-width: var(--zen-library-sidebar-width);
   flex-shrink: 0;
@@ -156,6 +157,7 @@
   position: relative;
   background: transparent !important;
   animation: blockSlideIn 0.2s var(--zen-library-easing) 0s both;
+  -moz-window-dragging;
 }
 
 :host([right-side]) #zen-library-sidebar-container {
@@ -183,6 +185,7 @@
 }
 
 .sidebar-button {
+  -moz-window-dragging: no-drag;
   display: flex;
   flex-direction: column;
   align-items: center;
@@ -382,12 +385,16 @@
 }
 
 /* SHARED LIST STYLES */
-.library-list-container,
 .library-closed-windows-container {
-  flex: 1;
+  position: absolute;
+  inset: 0;
+  flex-direction: column;
+  margin-top: 30px;
   overflow-y: hidden;
-  overflow-x: hidden;
-  padding: 0;
+  gap: 4px;
+  min-height: 0;
+  scrollbar-width: thin;
+  scrollbar-color: color-mix(in srgb, currentColor, transparent 50%) transparent;
 }
 
 .library-list-container {

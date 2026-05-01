@@ -101,7 +101,7 @@
                         this.renderClosedTabs();
                     }
                 }, [
-                    this.el("div", { className: "nav-icon", style: "background-image: url('chrome://browser/skin/history.svg')" }),
+                    this.el("div", { className: "nav-icon", style: "--history-nav-icon: url('chrome://browser/skin/history.svg')" }),
                     this.el("span", { className: "nav-label", textContent: "Recently closed tabs" }),
                     this.el("div", { className: "nav-arrow" })
                 ]);
@@ -113,7 +113,7 @@
                         this.renderClosedWindows();
                     }
                 }, [
-                    this.el("div", { className: "nav-icon", style: "background-image: url('chrome://browser/skin/window.svg')" }),
+                    this.el("div", { className: "nav-icon", style: "--history-nav-icon: url('chrome://browser/skin/window.svg')" }),
                     this.el("span", { className: "nav-label", textContent: "Recently closed windows" }),
                     this.el("div", { className: "nav-arrow" })
                 ]);
@@ -134,7 +134,7 @@
                         } catch (e) { }
                     }
                 }, [
-                    this.el("div", { className: "nav-icon", style: "background-image: url('chrome://global/skin/icons/delete.svg')" }),
+                    this.el("div", { className: "nav-icon", style: "--history-nav-icon: url('chrome://global/skin/icons/delete.svg')" }),
                     this.el("span", { className: "nav-label", textContent: "Clear history..." })
                 ]);
 
@@ -376,6 +376,11 @@
                             window.gZenLibrary.close();
                         };
 
+                        itemEl.oncontextmenu = (e) => {
+                            e.preventDefault();
+                            this._showContextMenu(e, item, itemEl);
+                        };
+
                         fragment.appendChild(itemEl);
                     } catch (itemError) {
                         console.error("ZenLibrary Error processing history item:", itemError, item);
@@ -394,16 +399,131 @@
 
         loadMore() { if (!this._isLoading) this.renderBatch(false); }
 
+        _copyToClipboard(text) {
+            try {
+                const helper = Components.classes["@mozilla.org/widget/clipboardhelper;1"]
+                    .getService(Components.interfaces.nsIClipboardHelper);
+                helper.copyString(text);
+            } catch (err) {
+                console.error("[ZenLibrary History] Copy failed:", err);
+            }
+        }
+
+        _hostnameFromUri(uri) {
+            try {
+                const url = new URL(uri);
+                if (url.protocol === "file:") return ".";
+                return url.hostname;
+            } catch (err) {
+                return "";
+            }
+        }
+
+        _getBrowserWindow() {
+            if (window.gBrowser && window.SessionStore) return window;
+            if (window.opener?.gBrowser && window.opener.SessionStore) return window.opener;
+            return Services.wm.getMostRecentWindow("navigator:browser") ||
+                Services.wm.getMostRecentWindow("browser:pure") ||
+                window;
+        }
+
+        _getSessionStore(browserWindow = this._getBrowserWindow()) {
+            return browserWindow.SessionStore || window.SessionStore || window.opener?.SessionStore || null;
+        }
+
+        _cssUrlValue(url) {
+            return String(url || "about:blank").replace(/["\\\n\r\f]/g, "\\$&");
+        }
+
+        _ensureContextMenu() {
+            if (document.getElementById("zen-history-context-menu")) return;
+            const popup = document.createXULElement("menupopup");
+            popup.id = "zen-history-context-menu";
+
+            const copyItem = document.createXULElement("menuitem");
+            copyItem.id = "zen-history-ctx-copy";
+            copyItem.setAttribute("label", "Copy");
+
+            const forgetItem = document.createXULElement("menuitem");
+            forgetItem.id = "zen-history-ctx-forget-site";
+            forgetItem.setAttribute("label", "Forget About This Site");
+
+            const deleteItem = document.createXULElement("menuitem");
+            deleteItem.id = "zen-history-ctx-delete";
+            deleteItem.setAttribute("label", "Delete");
+
+            popup.appendChild(copyItem);
+            popup.appendChild(forgetItem);
+            popup.appendChild(document.createXULElement("menuseparator"));
+            popup.appendChild(deleteItem);
+            (document.getElementById("mainPopupSet") || document.body).appendChild(popup);
+        }
+
+        _showContextMenu(e, item, itemEl) {
+            this._ensureContextMenu();
+            const popup = document.getElementById("zen-history-context-menu");
+            for (const id of ["zen-history-ctx-copy", "zen-history-ctx-forget-site", "zen-history-ctx-delete"]) {
+                const el = document.getElementById(id);
+                if (el) el.replaceWith(el.cloneNode(true));
+            }
+
+            document.getElementById("zen-history-ctx-copy").addEventListener("command", () => {
+                this._copyToClipboard(item.uri);
+            });
+
+            document.getElementById("zen-history-ctx-forget-site").addEventListener("command", async () => {
+                const host = this._hostnameFromUri(item.uri);
+                if (!host) return;
+
+                try {
+                    const { PlacesUtils } = ChromeUtils.importESModule("resource://gre/modules/PlacesUtils.sys.mjs");
+                    await PlacesUtils.history.removeByFilter({ host });
+                    this._items = this._items.filter(i => this._hostnameFromUri(i.uri) !== host);
+                    itemEl.style.transition = "opacity 0.15s, transform 0.15s";
+                    itemEl.style.opacity = "0";
+                    itemEl.style.transform = "translateX(-8px)";
+                    setTimeout(() => this.renderBatch(true), 160);
+                } catch (err) {
+                    console.error("[ZenLibrary History] Forget site failed:", err);
+                }
+            });
+
+            document.getElementById("zen-history-ctx-delete").addEventListener("command", async () => {
+                try {
+                    const { PlacesUtils } = ChromeUtils.importESModule("resource://gre/modules/PlacesUtils.sys.mjs");
+                    await PlacesUtils.history.remove(item.uri);
+                    this._items = this._items.filter(i => i.uri !== item.uri);
+                    itemEl.style.transition = "opacity 0.15s, transform 0.15s";
+                    itemEl.style.opacity = "0";
+                    itemEl.style.transform = "translateX(-8px)";
+                    setTimeout(() => this.renderBatch(true), 160);
+                } catch (err) {
+                    console.error("[ZenLibrary History] Delete failed:", err);
+                }
+            });
+
+            popup.openPopupAtScreen(e.screenX, e.screenY, true);
+        }
+
         renderClosedTabs() {
             if (!this._closedWindowsContainer) return;
             const container = this._closedWindowsContainer;
             container.innerHTML = "";
             container.classList.remove("scrollbar-visible");
 
-            const ss = window.SessionStore || (window.opener && window.opener.SessionStore) || Services.wm.getMostRecentWindow("browser:pure").SessionStore;
+            const browserWindow = this._getBrowserWindow();
+            const ss = this._getSessionStore(browserWindow);
             if (!ss) return;
 
-            const closedData = ss.getClosedTabData(window);
+            let closedData = ss.getClosedTabData(browserWindow);
+            if (typeof closedData === "string") {
+                try {
+                    closedData = JSON.parse(closedData);
+                } catch (err) {
+                    closedData = [];
+                }
+            }
+
             if (closedData.length === 0) {
                 container.appendChild(this.el("div", { className: "empty-state" }, [
                     this.el("div", { className: "empty-icon history-icon" }),
@@ -416,25 +536,33 @@
             fragment.appendChild(this.el("div", { className: "history-section-header", textContent: "Recently Closed Tabs" }));
 
             closedData.forEach((tabData, index) => {
-                const title = tabData.title || tabData.state.entries[tabData.state.index - 1].title;
-                const url = tabData.state.entries[tabData.state.index - 1].url;
+                try {
+                    const entries = tabData.state?.entries || [];
+                    const entryIndex = Math.max(0, Math.min(entries.length - 1, (tabData.state?.index || 1) - 1));
+                    const entry = entries[entryIndex] || entries[0] || {};
+                    const title = tabData.title || entry.title || "Untitled";
+                    const url = entry.url || "about:blank";
+                    const iconUrl = this._cssUrlValue(`page-icon:${url}`);
 
-                const row = this.el("div", {
-                    className: "library-list-item",
-                    onclick: () => {
-                        ss.undoCloseTab(window, index);
-                        window.gZenLibrary.close();
-                    }
-                }, [
-                    this.el("div", { className: "item-icon-container" }, [
-                        this.el("div", { className: "item-icon", style: `background-image: url('page-icon:${url}');` })
-                    ]),
-                    this.el("div", { className: "item-info" }, [
-                        this.el("div", { className: "item-title", textContent: title }),
-                        this.el("div", { className: "item-url", textContent: url })
-                    ])
-                ]);
-                fragment.appendChild(row);
+                    const row = this.el("div", {
+                        className: "library-list-item",
+                        onclick: () => {
+                            ss.undoCloseTab(browserWindow, index);
+                            window.gZenLibrary.close();
+                        }
+                    }, [
+                        this.el("div", { className: "item-icon-container" }, [
+                            this.el("div", { className: "item-icon", style: `background-image: url("${iconUrl}");` })
+                        ]),
+                        this.el("div", { className: "item-info" }, [
+                            this.el("div", { className: "item-title", textContent: title }),
+                            this.el("div", { className: "item-url", textContent: url })
+                        ])
+                    ]);
+                    fragment.appendChild(row);
+                } catch (err) {
+                    console.error("[ZenLibrary History] Failed to render closed tab:", err, tabData);
+                }
             });
 
             container.appendChild(fragment);
@@ -449,7 +577,8 @@
             container.innerHTML = "";
             container.classList.remove("scrollbar-visible");
 
-            const ss = window.SessionStore || (window.opener && window.opener.SessionStore) || Services.wm.getMostRecentWindow("browser:pure").SessionStore;
+            const browserWindow = this._getBrowserWindow();
+            const ss = this._getSessionStore(browserWindow);
             if (!ss) return;
 
             const closedData = ss.getClosedWindowData();
