@@ -652,6 +652,14 @@
   animation: zenMediaMaskMorph 0.583s forwards;
 }
 
+/* --- Spaces --- */ 
+.sidebar-button[data-id="spaces"].active .zen-spaces-back-card {
+  animation: zenSpacesBackBounce 0.583s forwards;
+}
+.sidebar-button[data-id="spaces"].active .zen-spaces-front-card {
+  animation: zenSpacesFrontBounce 0.583s forwards;
+}
+
 /* --- Boosts --- */
 .sidebar-button[data-id="boosts"].active .zen-boosts-card {
   animation: zenBoostsCard 0.583s forwards;
