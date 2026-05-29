@@ -11,3 +11,135 @@
 .empty-icon.downloads-icon {
     mask-image: url("chrome://browser/skin/downloads/downloads.svg");
 }
+
+.library-download-progress-item {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    height: 40px;
+    min-height: 40px;
+    margin: 0 8px;
+    padding: 0 8px;
+    border-radius: var(--border-radius-medium);
+    box-sizing: border-box;
+    background: transparent;
+    color: inherit;
+    opacity: 0.9;
+}
+
+.library-download-progress-item:hover {
+    background: var(--zen-library-hover-bg, rgba(255, 255, 255, 0.08));
+}
+
+.download-progress-icon-container {
+    width: 20px;
+    height: 20px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex-shrink: 0;
+    opacity: 0.8;
+}
+
+.download-progress-icon {
+    width: 16px;
+    height: 16px;
+    background-position: center;
+    background-repeat: no-repeat;
+    background-size: contain;
+}
+
+.download-progress-main {
+    display: flex;
+    flex: 1;
+    min-width: 0;
+    flex-direction: column;
+    gap: 2px;
+}
+
+.download-progress-title-row,
+.download-progress-meta {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    min-width: 0;
+}
+
+.download-progress-name {
+    flex: 1;
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    font-size: 12px;
+    font-weight: 600;
+    line-height: 13px;
+}
+
+.download-progress-percent {
+    flex-shrink: 0;
+    font-size: 10px;
+    opacity: 0.55;
+    font-variant-numeric: tabular-nums;
+}
+
+.download-progress-bar {
+    height: 3px;
+    overflow: hidden;
+    border-radius: 999px;
+    background: color-mix(in srgb, currentColor 14%, transparent);
+}
+
+.download-progress-fill {
+    min-width: 8px;
+    height: 100%;
+    border-radius: inherit;
+    background: var(--zen-primary-color, currentColor);
+    transition: width 0.25s var(--zen-library-easing);
+}
+
+.download-progress-meta {
+    justify-content: space-between;
+    font-size: 9px;
+    line-height: 10px;
+    opacity: 0.58;
+}
+
+.download-progress-meta span {
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.download-progress-cancel {
+    appearance: none;
+    border: 0;
+    display: flex;
+    width: 24px;
+    height: 24px;
+    align-items: center;
+    justify-content: center;
+    flex-shrink: 0;
+    border-radius: 4px;
+    padding: 0;
+    background: transparent;
+    color: inherit;
+    cursor: pointer;
+    opacity: 0.6;
+}
+
+.download-progress-cancel:hover {
+    opacity: 1;
+    background: rgba(255, 255, 255, 0.1);
+}
+
+.download-progress-cancel-icon {
+    display: block;
+    width: 14px;
+    height: 14px;
+    background-color: currentColor;
+    mask-image: url("chrome://browser/skin/zen-icons/close.svg");
+    mask-position: center;
+    mask-repeat: no-repeat;
+    mask-size: contain;
+}

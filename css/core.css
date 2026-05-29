@@ -26,8 +26,8 @@
 }
 
 #zen-library-button .toolbarbutton-icon {
-  list-style-image: url("chrome://sine/content/Zen Library/resources/zen-library.svg");
-  opacity: 0.5;
+  list-style-image: url("chrome://sine/content/zen-library/resources/zen-library.svg");
+  opacity: 0.4;
 }
 
 .zen-library-container {
@@ -142,6 +142,7 @@
 
 /* SIDEBAR */
 #zen-library-sidebar-container {
+    -moz-window-dragging: drag;
   width: var(--zen-library-sidebar-width);
   min-width: var(--zen-library-sidebar-width);
   flex-shrink: 0;
@@ -156,6 +157,7 @@
   position: relative;
   background: transparent !important;
   animation: blockSlideIn 0.2s var(--zen-library-easing) 0s both;
+  -moz-window-dragging;
 }
 
 :host([right-side]) #zen-library-sidebar-container {
@@ -183,6 +185,7 @@
 }
 
 .sidebar-button {
+  -moz-window-dragging: no-drag;
   display: flex;
   flex-direction: column;
   align-items: center;
@@ -191,16 +194,16 @@
   width: 76px;
   padding: 10px 0;
   border-radius: var(--border-radius-medium);
-  opacity: 0.6;
+  opacity: 1;
 }
 
 .sidebar-button:hover {
-  opacity: 0.75;
+  opacity: 1;
   background: var(--tab-hover-background-color, rgba(255, 255, 255, 0.1));
 }
 
 .sidebar-button.active {
-  opacity: 0.8;
+  opacity: 1;
   background: rgba(255, 255, 255, 0.15);
   font-weight: 600;
 }
@@ -242,7 +245,7 @@
 }
 
 .sidebar-button .icon {
-  opacity: 0.7;
+  opacity: 1;
   transition: opacity 0.3s var(--zen-library-easing);
 }
 
@@ -250,17 +253,11 @@
   opacity: 1;
 }
 
-.sidebar-button.active .icon circle,
+/* Changed 'circle' to strictly target '.downloads-bg' so the gradient is untouched */
+.sidebar-button.active .icon .downloads-bg,
 .sidebar-button.active .icon .front-rect,
 .sidebar-button.active .icon .back-rect {
-  fill-opacity: 1 !important;
-}
-
-.media-icon .mountain {
-  fill-opacity: 0.7;
-}
-
-.sidebar-button.active .media-icon .mountain {
+  opacity: 1 !important;
   fill-opacity: 1 !important;
 }
 
@@ -382,12 +379,16 @@
 }
 
 /* SHARED LIST STYLES */
-.library-list-container,
 .library-closed-windows-container {
-  flex: 1;
+  position: absolute;
+  inset: 0;
+  flex-direction: column;
+  margin-top: 30px;
   overflow-y: hidden;
-  overflow-x: hidden;
-  padding: 0;
+  gap: 4px;
+  min-height: 0;
+  scrollbar-width: thin;
+  scrollbar-color: color-mix(in srgb, currentColor, transparent 50%) transparent;
 }
 
 .library-list-container {
@@ -595,3 +596,392 @@
   scrollbar-width: auto !important;
   overflow-y: auto !important;
 }
+
+/* Active States for Icons */
+
+/* Make the solid background fills fully visible */
+.sidebar-button[data-id="downloads"].active .zen-downloads-bg,
+.sidebar-button[data-id="history"].active .zen-history-bg,
+.sidebar-button[data-id="media"].active .zen-media-bg,
+.sidebar-button[data-id="spaces"].active .zen-spaces-bg,
+.sidebar-button[data-id="boosts"].active .zen-boosts-bg {
+  fill-opacity: 1 !important;
+}
+
+.sidebar-button[data-id="downloads"].active .zen-downloads-gradient,
+.sidebar-button[data-id="history"].active .zen-history-gradient,
+.sidebar-button[data-id="media"].active .zen-media-gradient,
+.sidebar-button[data-id="spaces"].active .zen-spaces-gradient,
+.sidebar-button[data-id="boosts"].active .zen-boosts-gradient {
+  fill-opacity: 0.1 !important;
+}
+
+/* Animations */
+
+/* --- Downloads --- */
+.sidebar-button[data-id="downloads"].active .zen-downloads-circle-translate {
+  animation: zenDownloadsCircleBounce 0.583s forwards;
+}
+
+.sidebar-button[data-id="downloads"].active .zen-downloads-arrow {
+  animation: zenDownloadsArrowBounce 0.583s forwards;
+}
+
+/* --- History --- */
+.sidebar-button[data-id="history"].active .zen-history-body-translate {
+  animation: zenHistoryBodyTranslate 0.583s forwards;
+}
+.sidebar-button[data-id="history"].active .zen-history-lid {
+  animation: zenHistoryLid 0.583s forwards;
+}
+.sidebar-button[data-id="history"].active .zen-history-dash-translate {
+  animation: zenHistoryDashTranslate 0.583s forwards;
+}
+
+/* --- Media --- */
+.sidebar-button[data-id="media"].active .zen-media-back-card {
+  animation: zenMediaBackBounce 0.583s forwards;
+}
+.sidebar-button[data-id="media"].active .zen-media-front-card {
+  animation: zenMediaFrontBounce 0.583s forwards;
+}
+.sidebar-button[data-id="media"].active .zen-media-sun {
+  animation: zenMediaSunBounce 0.583s forwards;
+}
+.sidebar-button[data-id="media"].active .zen-media-mask-path {
+  animation: zenMediaMaskMorph 0.583s forwards;
+}
+
+/* --- Boosts --- */
+.sidebar-button[data-id="boosts"].active .zen-boosts-card {
+  animation: zenBoostsCard 0.583s forwards;
+}
+
+.sidebar-button[data-id="boosts"].active .zen-boosts-brush {
+  animation: zenBoostsBrush 0.583s forwards;
+}
+
+.sidebar-button[data-id="boosts"].active .zen-boosts-star-large {
+  animation: zenBoostsStarLarge 0.583s forwards;
+}
+
+.sidebar-button[data-id="boosts"].active .zen-boosts-star-small {
+  animation: zenBoostsStarSmall 0.583s forwards;
+}
+
+/* Keyframes */
+
+/* --- Downloads Keyframes --- */
+@keyframes zenDownloadsArrowBounce {
+  0% {
+    transform: translateY(0px);
+    d: path('M 64 45 L 64 83 M 50 69 L 64 83 L 78 69');
+    animation-timing-function: cubic-bezier(0.33, 0, 0.7, 1.28);
+  }
+  31.43% {
+    transform: translateY(10px);
+    d: path('M 64 57 L 64 83 M 50 69 L 64 83 L 78 69');
+    animation-timing-function: cubic-bezier(0.44, 0.2, 0.44, 0.98);
+  }
+  60% {
+    transform: translateY(-10.83px);
+    d: path('M 64 45 L 64 83 M 50 69 L 64 83 L 78 69');
+    animation-timing-function: cubic-bezier(0.45, -0.03, 0.83, 0.9);
+  }
+  85.71% {
+    transform: translateY(0.66px);
+    d: path('M 64 45 L 64 83 M 50 69 L 64 83 L 78 69');
+    animation-timing-function: cubic-bezier(0.17, -0.98, 0.83, 0.83);
+  }
+  100% {
+    transform: translateY(0px);
+    d: path('M 64 45 L 64 83 M 50 69 L 64 83 L 78 69');
+  }
+}
+
+@keyframes zenDownloadsCircleBounce {
+  0% {
+    transform: translateY(0px);
+    animation-timing-function: cubic-bezier(0.33, 0, 0.71, 2.31);
+  }
+  31.43% { 
+    transform: translateY(2.5px);
+    animation-timing-function: cubic-bezier(0.23, 0.15, 0.36, 0.97);
+  }
+  54.29% { 
+    transform: translateY(-11.46px);
+    animation-timing-function: cubic-bezier(0.48, -0.04, 0.83, 0.89);
+  }
+  85.71% { 
+    transform: translateY(0.85px);
+    animation-timing-function: cubic-bezier(0.17, -0.70, 0.83, 0.83);
+  }
+  100% {
+    transform: translateY(0px);
+  }
+}
+
+/* --- History Keyframes --- */
+@keyframes zenHistoryBodyTranslate {
+  0%, 31.43% {
+    transform: translate(63.977px, 79.047px);
+    animation-timing-function: cubic-bezier(0.16, 0.41, 0.34, 1);
+  }
+  60% {
+    transform: translate(63.977px, 63.253px);
+    animation-timing-function: cubic-bezier(0.33, 0, 0.62, 0.55);
+  }
+  77.14%, 100% {
+    transform: translate(63.977px, 79.047px);
+  }
+}
+
+/* Merged Top Lid (Translation + Rotation) */
+@keyframes zenHistoryLid {
+  0% {
+    transform: translate(63.977px, 37.148px) rotate(0deg) translate(-46.852px, -12.82px);
+    animation-timing-function: cubic-bezier(0.21, 0, 0.56, 1);
+  }
+  31.43% {
+    transform: translate(63.977px, 45.436px) rotate(0deg) translate(-46.852px, -12.82px);
+    animation-timing-function: cubic-bezier(0.38, 0, 0.55, 1);
+  }
+  62.86% {
+    transform: translate(63.977px, 17.08px) rotate(-5.57deg) translate(-46.852px, -12.82px);
+    animation-timing-function: cubic-bezier(0.43, 0.14, 0.38, 1);
+  }
+  82.86% {
+    transform: translate(63.977px, 23.397px) rotate(3deg) translate(-46.852px, -12.82px);
+    animation-timing-function: cubic-bezier(0.41, 0, 0.49, 1);
+  }
+  100% {
+    transform: translate(63.977px, 37.148px) rotate(0deg) translate(-46.852px, -12.82px);
+  }
+}
+
+@keyframes zenHistoryDashTranslate {
+  0% {
+    transform: translate(64px, 65px) scale(0.9, 1);
+    animation-timing-function: cubic-bezier(0.38, 0, 0.44, 1);
+  }
+  31.43% {
+    transform: translate(64px, 74.038px) scale(0.9, 1);
+    animation-timing-function: cubic-bezier(0.43, 0, 0.73, -0.57);
+  }
+  45.71% {
+    transform: translate(64px, 72.423px) scale(0.9, 1);
+    animation-timing-function: cubic-bezier(0.34, 0.28, 0.7, 0.79);
+  }
+  60% {
+    transform: translate(64px, 61.033px) scale(0.9, 1);
+    animation-timing-function: cubic-bezier(0.22, -1.27, 0.34, 1.22);
+  }
+  100% {
+    transform: translate(64px, 65px) scale(0.9, 1);
+  }
+}
+
+
+/* --- Media Keyframes --- */
+@keyframes zenMediaBackBounce {
+  0% {
+    transform: translate(54.799px, 57.743px) rotate(-7deg) translate(-46.27px, -36.445px);
+    animation-timing-function: cubic-bezier(0.33, 0, 0.67, 1);
+  }
+  29.41% {
+    transform: translate(57.299px, 65.243px) rotate(3deg) translate(-46.27px, -36.445px);
+    animation-timing-function: cubic-bezier(0.3, 0, 0.8, 1);
+  }
+  61.76% {
+    transform: translate(56.16px, 47.803px) rotate(-18.58deg) translate(-46.27px, -36.445px);
+    animation-timing-function: cubic-bezier(0.16, 0, 0.8, 1);
+  }
+  79.41% {
+    transform: translate(55.25px, 54.3px) rotate(-3.2deg) translate(-46.27px, -36.445px);
+    animation-timing-function: cubic-bezier(0.33, 0, 0.67, 1);
+  }
+  100% {
+    transform: translate(54.799px, 57.743px) rotate(-7deg) translate(-46.27px, -36.445px);
+  }
+}
+
+@keyframes zenMediaFrontBounce {
+  0% {
+    transform: translate(78.827px, 77.737px) rotate(0deg) translate(-46.27px, -36.445px);
+    animation-timing-function: cubic-bezier(0.33, 0, 0.67, 1);
+  }
+  29.41% {
+    transform: translate(78.827px, 80.737px) rotate(0deg) translate(-46.27px, -36.445px);
+    animation-timing-function: cubic-bezier(0.4, 0, 0.64, 1);
+  }
+  55.88% {
+    transform: translate(75.827px, 62.61px) rotate(9.32deg) translate(-46.27px, -36.445px);
+    animation-timing-function: cubic-bezier(0.25, 0, 0.75, 1);
+  }
+  88.24% {
+    transform: translate(78.827px, 77.737px) rotate(0deg) translate(-46.27px, -36.445px);
+    animation-timing-function: linear;
+  }
+  100% {
+    transform: translate(78.827px, 77.737px) rotate(0deg) translate(-46.27px, -36.445px);
+  }
+}
+
+@keyframes zenMediaSunBounce {
+  0% { /* Frame 1 */
+    transform: translate(64.76px, 67.886px) translate(-9.914px, -9.984px);
+    animation-timing-function: cubic-bezier(0.32, 0, 0.67, 1);
+  }
+  29.41% { /* Frame 11 - Dips down */
+    transform: translate(64.76px, 73.606px) translate(-9.914px, -9.984px);
+    animation-timing-function: linear; 
+  }
+  35.29% { /* Frame 13 - Brief hold before launch */
+    transform: translate(64.76px, 73.606px) translate(-9.914px, -9.984px);
+    animation-timing-function: cubic-bezier(0.35, 0, 0.76, 0.72);
+  }
+  55.88% { /* Frame 20 - Shoots out */
+    transform: translate(61.737px, 51.974px) translate(-9.914px, -9.984px);
+    /* Negative handle creates the rubber-band gravity snap */
+    animation-timing-function: cubic-bezier(0.21, -0.71, 0.45, 1);
+  }
+  100% { /* Frame 35 */
+    transform: translate(64.76px, 67.886px) translate(-9.914px, -9.984px);
+  }
+}
+
+/* --- Spaces Keyframes --- */
+@keyframes zenSpacesBackBounce {
+  0% {
+    transform: translate(51.28px, 61.69px) rotate(-17.5deg) translate(-35.022px, -44.68px);
+    animation-timing-function: cubic-bezier(0.21, 0, 0.56, 1);
+  }
+  34.28% { /* Dips down */
+    transform: translate(56.28px, 72.19px) rotate(6deg) translate(-35.022px, -44.68px);
+    animation-timing-function: cubic-bezier(0.38, 0, 0.55, 1);
+  }
+  62.86% { /* Launches up */
+    transform: translate(51.28px, 55.52px) rotate(-27.83deg) translate(-35.022px, -44.68px);
+    animation-timing-function: cubic-bezier(0.73, 0, 0.63, 1);
+  }
+  100% {
+    transform: translate(51.28px, 61.69px) rotate(-17.5deg) translate(-35.022px, -44.68px);
+  }
+}
+
+@keyframes zenSpacesFrontBounce {
+  0% {
+    transform: translate(77.02px, 75.93px) rotate(0deg) translate(-35.022px, -44.68px);
+    animation-timing-function: cubic-bezier(0.21, 0, 0.56, 1);
+  }
+  31.43% { /* Dips down */
+    transform: translate(77.02px, 78.18px) rotate(-5deg) translate(-35.022px, -44.68px);
+    animation-timing-function: cubic-bezier(0.38, 0, 0.55, 1);
+  }
+  54.28% { /* Launches up */
+    transform: translate(77.02px, 55.71px) rotate(28.96deg) translate(-35.022px, -44.68px);
+    animation-timing-function: cubic-bezier(0.73, 0, 0.63, 1);
+  }
+  100% {
+    transform: translate(77.02px, 75.93px) rotate(0deg) translate(-35.022px, -44.68px);
+  }
+}
+
+/* --- Boosts Keyframes --- */
+
+/* 1. Box */
+@keyframes zenBoostsCard {
+  0%, 13.33% {
+    transform: translate(61.889px, 63.143px) scale(1.1) rotate(-15deg);
+    animation-timing-function: cubic-bezier(0.35, 0, 0.685, 1);
+  }
+  37.77% {
+    transform: translate(61.889px, 68.143px) scale(1.1) rotate(-23deg);
+    animation-timing-function: cubic-bezier(0.25, 0, 0.7, 1);
+  }
+  64.8% {
+    transform: translate(61.889px, 55.143px) scale(1.1) rotate(-5.4deg);
+    animation-timing-function: cubic-bezier(0.28, 0, 0.68, 1);
+  }
+  87%, 100% {
+    transform: translate(61.889px, 63.143px) scale(1.1) rotate(-15deg);
+  }
+}
+
+/* 2. Paintbrush */
+@keyframes zenBoostsBrush {
+  0%, 2.22% {
+    transform: translate(18.247px, 109.504px) scale(1.1) rotate(0deg);
+    animation-timing-function: cubic-bezier(0.6, 0, 0.7, 1);
+  }
+  32% {
+    transform: translate(18.247px, 112px) scale(1.1) rotate(12deg);
+    animation-timing-function: cubic-bezier(0.3, 0, 0.6, 1);
+  }
+  52% {
+    transform: translate(18.247px, 97.957px) scale(1.1) rotate(-16.5deg);
+    animation-timing-function: cubic-bezier(0.4, 0, 0.5, 1);
+  }
+  80%, 100% {
+    transform: translate(18.247px, 109.504px) scale(1.1) rotate(0deg);
+  }
+}
+
+/* 3. Sparkle Large */
+@keyframes zenBoostsStarLarge {
+  0%, 20% {
+    transform: translate(85.002px, 50.174px) rotate(2.014deg) scale(1);
+    animation-timing-function: cubic-bezier(0.29, 0, 0.83, 1);
+  }
+  33.3% {
+    transform: translate(85.002px, 59px) rotate(2.014deg) scale(1);
+    animation-timing-function: linear;
+  }
+  42.2% {
+    transform: translate(85.002px, 60.5px) rotate(2.014deg) scale(0);
+    animation-timing-function: linear;
+  }
+  53.3% {
+    transform: translate(85.002px, 45px) rotate(2.014deg) scale(0);
+    animation-timing-function: cubic-bezier(0.45, 0, 0.63, 1);
+  }
+  62.2% {
+    transform: translate(85.002px, 33.344px) rotate(2.014deg) scale(1);
+    animation-timing-function: cubic-bezier(0.45, 0, 0.63, 1);
+  }
+  88.8%, 100% {
+    transform: translate(85.002px, 50.174px) rotate(2.014deg) scale(1);
+  }
+}
+
+/* 4. Sparkle Small */
+@keyframes zenBoostsStarSmall {
+  0%, 26.6% {
+    transform: translate(68.002px, 37.075px) rotate(2.014deg) scale(1);
+    animation-timing-function: cubic-bezier(0.29, 0, 0.83, 1);
+  }
+  44.8% {
+    transform: translate(68.002px, 44.632px) rotate(2.014deg) scale(1);
+    animation-timing-function: linear;
+  }
+  55.5% {
+    transform: translate(68.002px, 34px) rotate(2.014deg) scale(1);
+    animation-timing-function: linear;
+  }
+  64.4% {
+    transform: translate(68.002px, 25px) rotate(2.014deg) scale(0);
+    animation-timing-function: linear;
+  }
+  75.5% {
+    transform: translate(68.002px, 15px) rotate(2.014deg) scale(0);
+    animation-timing-function: cubic-bezier(0.45, 0, 0.63, 1);
+  }
+  84.4% {
+    transform: translate(68.002px, 28px) rotate(2.014deg) scale(1);
+    animation-timing-function: cubic-bezier(0.45, 0, 0.63, 1);
+  }
+  93.3%, 100% {
+    transform: translate(68.002px, 37.075px) rotate(2.014deg) scale(1);
+  }
+}
+
