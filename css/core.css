@@ -730,83 +730,42 @@
 }
 
 /* --- History Keyframes --- */
-@keyframes zenHistoryBodyTranslate {
-  0%, 31.43% {
-    transform: translate(63.977px, 79.047px);
-    animation-timing-function: cubic-bezier(0.16, 0.41, 0.34, 1);
-  }
-  60% {
-    transform: translate(63.977px, 63.253px);
-    animation-timing-function: cubic-bezier(0.33, 0, 0.62, 0.55);
-  }
-  77.14%, 100% {
-    transform: translate(63.977px, 79.047px);
-  }
-}
-
-/* Merged Top Lid (Translation + Rotation) */
-@keyframes zenHistoryLid {
-  0% {
-    transform: translate(63.977px, 37.148px) rotate(0deg) translate(-46.852px, -12.82px);
-    animation-timing-function: cubic-bezier(0.21, 0, 0.56, 1);
-  }
-  31.43% {
-    transform: translate(63.977px, 45.436px) rotate(0deg) translate(-46.852px, -12.82px);
-    animation-timing-function: cubic-bezier(0.38, 0, 0.55, 1);
-  }
-  62.86% {
-    transform: translate(63.977px, 17.08px) rotate(-5.57deg) translate(-46.852px, -12.82px);
-    animation-timing-function: cubic-bezier(0.43, 0.14, 0.38, 1);
-  }
-  82.86% {
-    transform: translate(63.977px, 23.397px) rotate(3deg) translate(-46.852px, -12.82px);
-    animation-timing-function: cubic-bezier(0.41, 0, 0.49, 1);
-  }
-  100% {
-    transform: translate(63.977px, 37.148px) rotate(0deg) translate(-46.852px, -12.82px);
-  }
-}
-
-@keyframes zenHistoryDashTranslate {
-  0% {
-    transform: translate(64px, 65px) scale(0.9, 1);
-    animation-timing-function: cubic-bezier(0.38, 0, 0.44, 1);
-  }
-  31.43% {
-    transform: translate(64px, 74.038px) scale(0.9, 1);
-    animation-timing-function: cubic-bezier(0.43, 0, 0.73, -0.57);
-  }
-  45.71% {
-    transform: translate(64px, 72.423px) scale(0.9, 1);
-    animation-timing-function: cubic-bezier(0.34, 0.28, 0.7, 0.79);
-  }
-  60% {
-    transform: translate(64px, 61.033px) scale(0.9, 1);
-    animation-timing-function: cubic-bezier(0.22, -1.27, 0.34, 1.22);
-  }
-  100% {
-    transform: translate(64px, 65px) scale(0.9, 1);
-  }
-}
-
-
+    @keyframes zenHistoryBodyTranslate {
+      0%, 31.43% { transform: translate(63.977px, 79.047px); animation-timing-function: cubic-bezier(0.16, 0.41, 0.34, 1); }
+      60% { transform: translate(63.977px, 63.253px); animation-timing-function: cubic-bezier(0.33, 0, 0.62, 0.55); }
+      77.14%, 100% { transform: translate(63.977px, 79.047px); }
+    }
+    @keyframes zenHistoryLid {
+      0% { transform: translate(63.977px, 37.148px) rotate(0deg) translate(-46.852px, -12.82px); animation-timing-function: cubic-bezier(0.21, 0, 0.56, 1); }
+      31.43% { transform: translate(63.977px, 51.609px) rotate(0deg) translate(-46.852px, -12.82px); animation-timing-function: cubic-bezier(0.38, 0, 0.55, 1); }
+      62.86% { transform: translate(63.977px, 17.08px) rotate(-6.93deg) translate(-46.852px, -12.82px); animation-timing-function: cubic-bezier(0.43, 0.14, 0.38, 1); }
+      82.86% { transform: translate(63.977px, 23.397px) rotate(4.2deg) translate(-46.852px, -12.82px); animation-timing-function: cubic-bezier(0.41, 0, 0.49, 1); }
+      100% { transform: translate(63.977px, 37.148px) rotate(0deg) translate(-46.852px, -12.82px); }
+    }
+    @keyframes zenHistoryDashTranslate {
+      0% { transform: translate(64px, 65px) scale(0.9, 1); animation-timing-function: cubic-bezier(0.33, 0, 0.7, 1.28); }
+      31.43% { transform: translate(64px, 79.461px) scale(0.8, 1); animation-timing-function: cubic-bezier(0.44, 0.2, 0.44, 0.98); }
+      54.29% { transform: translate(64px, 61.033px) scale(0.86, 1); animation-timing-function: cubic-bezier(0.45, -0.03, 0.83, 0.9); }
+      85.71% { transform: translate(64px, 65.66px) scale(0.9, 1); animation-timing-function: cubic-bezier(0.22, -0.9, 0.25, 1.25); }
+      100% { transform: translate(64px, 65px) scale(0.9, 1); }
+    }
 /* --- Media Keyframes --- */
 @keyframes zenMediaBackBounce {
   0% {
     transform: translate(54.799px, 57.743px) rotate(-7deg) translate(-46.27px, -36.445px);
     animation-timing-function: cubic-bezier(0.33, 0, 0.67, 1);
   }
-  29.41% {
+  24.41% {
     transform: translate(57.299px, 65.243px) rotate(3deg) translate(-46.27px, -36.445px);
     animation-timing-function: cubic-bezier(0.3, 0, 0.8, 1);
   }
-  61.76% {
+  43.67% {
     transform: translate(56.16px, 47.803px) rotate(-18.58deg) translate(-46.27px, -36.445px);
     animation-timing-function: cubic-bezier(0.16, 0, 0.8, 1);
   }
-  79.41% {
+  78.21% {
     transform: translate(55.25px, 54.3px) rotate(-3.2deg) translate(-46.27px, -36.445px);
-    animation-timing-function: cubic-bezier(0.33, 0, 0.67, 1);
+    animation-timing-function: cubic-bezier(0.65, 0, 0.35, 1);
   }
   100% {
     transform: translate(54.799px, 57.743px) rotate(-7deg) translate(-46.27px, -36.445px);
@@ -818,12 +777,12 @@
     transform: translate(78.827px, 77.737px) rotate(0deg) translate(-46.27px, -36.445px);
     animation-timing-function: cubic-bezier(0.33, 0, 0.67, 1);
   }
-  29.41% {
+  24.41% {
     transform: translate(78.827px, 80.737px) rotate(0deg) translate(-46.27px, -36.445px);
     animation-timing-function: cubic-bezier(0.4, 0, 0.64, 1);
   }
   55.88% {
-    transform: translate(75.827px, 62.61px) rotate(9.32deg) translate(-46.27px, -36.445px);
+    transform: translate(75.827px, 62.61px) rotate(16.32deg) translate(-46.27px, -36.445px);
     animation-timing-function: cubic-bezier(0.25, 0, 0.75, 1);
   }
   88.24% {
@@ -840,7 +799,7 @@
     transform: translate(64.76px, 67.886px) translate(-9.914px, -9.984px);
     animation-timing-function: cubic-bezier(0.32, 0, 0.67, 1);
   }
-  29.41% { /* Frame 11 - Dips down */
+  24.41% { /* Frame 11 - Dips down */
     transform: translate(64.76px, 73.606px) translate(-9.914px, -9.984px);
     animation-timing-function: linear; 
   }
